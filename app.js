@@ -17,25 +17,48 @@ const state = {
 // Initialize app
 async function init() {
     console.log('🚀 Trap Stars Trait Shop - Production Mode');
-    
-    // Load config
+
+    // Load config from environment variables (production) or config.json (local dev)
     try {
+        // Try to load from config.json first (local development)
         const response = await fetch('config.json');
-        config = await response.json();
-        console.log('✅ Configuration loaded');
-        hideElement(document.getElementById('configNotice'));
+        if (response.ok) {
+            config = await response.json();
+            console.log('✅ Configuration loaded from config.json');
+        } else {
+            throw new Error('config.json not found, trying environment variables');
+        }
     } catch (err) {
-        console.error('❌ Failed to load config.json:', err);
-        showStatus('⚠️ Please create config.json file with your settings', 'error');
-        return;
+        console.log('⚠️ config.json not found, loading from environment variables...');
+
+        // Load from environment variables (Vite uses import.meta.env)
+        if (import.meta.env.VITE_HELIUS_API_KEY) {
+            config = {
+                heliusApiKey: import.meta.env.VITE_HELIUS_API_KEY,
+                collectionAddress: import.meta.env.VITE_COLLECTION_ADDRESS,
+                updateAuthority: import.meta.env.VITE_UPDATE_AUTHORITY,
+                updateAuthorityPrivateKey: JSON.parse(import.meta.env.VITE_UPDATE_AUTHORITY_PRIVATE_KEY || '[]'),
+                rpcEndpoint: import.meta.env.VITE_RPC_ENDPOINT,
+                layerOrder: JSON.parse(import.meta.env.VITE_LAYER_ORDER || '["background","body","shirt","weapons","accessories","logo","meme","iceout chain","face","mouth","eyes","eyebrows","hair","eyewear","headwear"]'),
+                optionalLayers: JSON.parse(import.meta.env.VITE_OPTIONAL_LAYERS || '["face","eyewear","headwear","accessories","weapons","iceout chain"]'),
+                imageSize: parseInt(import.meta.env.VITE_IMAGE_SIZE || '1750')
+            };
+            console.log('✅ Configuration loaded from environment variables');
+        } else {
+            console.error('❌ No configuration found');
+            showStatus('⚠️ Configuration not found. Please set up environment variables in Netlify.', 'error');
+            return;
+        }
     }
-    
+
+    hideElement(document.getElementById('configNotice'));
+
     // Set up event listeners
     setupEventListeners();
-    
+
     // Auto-load trait layers from public folder
     await loadTraitLayersFromPublic();
-    
+
     // Check for Phantom
     if (window.solana && window.solana.isPhantom) {
         console.log('✅ Phantom wallet detected');
