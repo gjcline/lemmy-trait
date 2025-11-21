@@ -18,8 +18,8 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const TRAITS_DIR = path.join(__dirname, 'public', 'traits');
-const MANIFEST_PATH = path.join(TRAITS_DIR, 'manifest.json');
+const PUBLIC_DIR = path.join(__dirname, 'public');
+const MANIFEST_PATH = path.join(PUBLIC_DIR, 'manifest.json');
 
 // Get layer order from config.json
 let layerOrder = [];
@@ -52,20 +52,20 @@ const categories = layerOrder.length > 0 ? layerOrder : [];
 // If we have layer order, use it; otherwise scan for folders
 if (categories.length > 0) {
     categories.forEach(category => {
-        const categoryDir = path.join(TRAITS_DIR, category);
+        const categoryDir = path.join(PUBLIC_DIR, category);
         const traits = getTraitFiles(categoryDir);
-        manifest[category] = traits.sort(); // Sort alphabetically
+        manifest[category] = traits.sort();
         console.log(`  ${category}: ${traits.length} traits`);
     });
 } else {
     // Scan for all folders
-    if (fs.existsSync(TRAITS_DIR)) {
-        const folders = fs.readdirSync(TRAITS_DIR, { withFileTypes: true })
+    if (fs.existsSync(PUBLIC_DIR)) {
+        const folders = fs.readdirSync(PUBLIC_DIR, { withFileTypes: true })
             .filter(dirent => dirent.isDirectory())
             .map(dirent => dirent.name);
-        
+
         folders.forEach(category => {
-            const categoryDir = path.join(TRAITS_DIR, category);
+            const categoryDir = path.join(PUBLIC_DIR, category);
             const traits = getTraitFiles(categoryDir);
             manifest[category] = traits.sort();
             console.log(`  ${category}: ${traits.length} traits`);

@@ -243,83 +243,55 @@ async function fetchUserNFTs(walletAddr) {
     }
 }
 
-// Auto-load trait layers from public/traits folder
+// Auto-load trait layers from public folder
 async function loadTraitLayersFromPublic() {
     console.log('📁 Loading trait layers from public folder...');
-    
+
     try {
-        // Load the manifest file that lists all available traits
-        const manifestResponse = await fetch('/traits/manifest.json');
-        
+        const manifestResponse = await fetch('/manifest.json');
+
         if (!manifestResponse.ok) {
-            console.warn('⚠️ Trait manifest not found. Traits will need to be uploaded manually.');
-            showStatus('⚠️ Trait manifest not found. Use "Upload Trait Layers" button to load traits manually.', 'info');
+            console.warn('⚠️ Trait manifest not found. Run generate-manifest.js to create it.');
+            showStatus('⚠️ Trait manifest not found.', 'info');
             return;
         }
-        
+
         const manifest = await manifestResponse.json();
         console.log('✅ Trait manifest loaded:', manifest);
-        
+
         const layersByCategory = {};
-        let totalTraits = 0;
         let loadedTraits = 0;
-        let failedTraits = [];
-        
-        // For each category in the manifest, try to load each trait image
-        for (const [category, traits] of Object.entries(manifest)) {
-            if (!Array.isArray(traits) || traits.length === 0) {
-                continue; // Skip empty categories
-            }
-            
+
+        for (const [category, traitNames] of Object.entries(manifest)) {
+            if (!Array.isArray(traitNames)) continue;
+
             layersByCategory[category] = [];
-            
-            for (const traitName of traits) {
-                totalTraits++;
-                const imagePath = `/traits/${category}/${traitName}.png`;
-                
-                try {
-                    // Try to load the image to verify it exists
-                    const img = new Image();
-                    await new Promise((resolve, reject) => {
-                        img.onload = () => {
-                            // Image exists, add it to our layers
-                            layersByCategory[category].push({
-                                name: traitName,
-                                url: imagePath,
-                                loaded: true
-                            });
-                            loadedTraits++;
-                            resolve();
-                        };
-                        img.onerror = () => {
-                            // Image doesn't exist
-                            failedTraits.push(`${category}/${traitName}.png`);
-                            reject(new Error(`Image not found: ${imagePath}`));
-                        };
-                        img.src = imagePath;
-                    });
-                } catch (err) {
-                    // Image failed to load, but we continue
-                    console.warn(`⚠️ Could not load trait: ${imagePath}`);
-                }
+
+            for (const traitName of traitNames) {
+                const imagePath = `/${category}/${traitName}.png`;
+
+                layersByCategory[category].push({
+                    name: traitName,
+                    url: imagePath,
+                    loaded: true
+                });
+                loadedTraits++;
             }
         }
-        
-        // Store loaded traits in state
+
         state.traitLayers = layersByCategory;
-        
+
         const categories = Object.keys(layersByCategory).filter(cat => layersByCategory[cat].length > 0);
-        
+
         console.log(`✅ Loaded ${loadedTraits} traits across ${categories.length} categories`);
-        
+
         if (loadedTraits > 0) {
             showStatus(`✅ Auto-loaded ${loadedTraits} trait images from ${categories.length} categories!`, 'info');
-            
-            // Update the UI to show loaded categories
-            const categoriesHTML = categories.map(cat => 
+
+            const categoriesHTML = categories.map(cat =>
                 `<span class="inline-block bg-green-600 px-3 py-1 rounded-full text-sm mr-2 mb-2">${cat} (${layersByCategory[cat].length})</span>`
             ).join('');
-            
+
             const loadedInfo = document.getElementById('loadedCategories');
             if (loadedInfo) {
                 loadedInfo.innerHTML = `
@@ -332,7 +304,7 @@ async function loadTraitLayersFromPublic() {
         } else {
             showStatus('⚠️ No trait images found.', 'info');
         }
-        
+
     } catch (err) {
         console.error('❌ Failed to load trait layers:', err);
         showStatus('⚠️ Could not auto-load traits.', 'info');
@@ -402,37 +374,39 @@ function openCustomizePage() {
     // Build trait selection dropdowns based on layer order
     const traitHTML = config.layerOrder.map(layerName => {
         // Find current trait value for this layer
-        const currentTrait = state.selectedNFT.attributes.find(attr => 
+        const currentTrait = state.selectedNFT.attributes.find(attr =>
             attr.trait_type.toLowerCase() === layerName.toLowerCase()
         );
         const currentValue = currentTrait ? currentTrait.value : '';
-        
+
         // Get available options for this layer
         const availableTraits = state.traitLayers[layerName] || [];
         const options = availableTraits.map(trait => {
             const selected = trait.name === currentValue ? 'selected' : '';
             return `<option value="${trait.name}" ${selected}>${trait.name}</option>`;
         }).join('');
-        
+
         // Add "None" option for optional layers
-        const noneOption = config.optionalLayers.includes(layerName) 
-            ? '<option value="">None</option>' 
+        const noneOption = config.optionalLayers.includes(layerName)
+            ? '<option value="">None</option>'
             : '';
-        
+
         return `
-            <div class="glass rounded-lg p-4">
-                <label class="block text-sm font-medium mb-2 capitalize text-purple-200">
+            <div class="trait-row">
+                <label class="trait-label">
                     ${layerName}
                 </label>
-                <select 
-                    class="trait-select w-full" 
+                <select
+                    class="trait-select w-full"
                     data-trait-type="${layerName}"
                     onchange="updateCustomTrait('${layerName}', this.value)"
                 >
                     ${noneOption}
                     ${options}
                 </select>
-                ${currentValue ? `<p class="text-xs text-purple-300 mt-1">Current: ${currentValue}</p>` : ''}
+                <span class="trait-current" title="${currentValue || 'None'}">
+                    ${currentValue || '—'}
+                </span>
             </div>
         `;
     }).join('');

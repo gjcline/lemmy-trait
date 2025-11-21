@@ -37,17 +37,55 @@
             background: rgba(255, 255, 255, 0.1);
             border: 1px solid rgba(255, 255, 255, 0.2);
             color: white;
-            padding: 0.75rem 1rem;
-            border-radius: 0.5rem;
+            padding: 0.5rem 2rem 0.5rem 0.75rem;
+            border-radius: 0.375rem;
             transition: all 0.2s;
+            font-size: 0.875rem;
+            cursor: pointer;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='white' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 0.5rem center;
         }
         .trait-select:hover {
-            background: rgba(255, 255, 255, 0.15);
+            background-color: rgba(255, 255, 255, 0.15);
             border-color: rgba(255, 255, 255, 0.3);
+        }
+        .trait-select:focus {
+            outline: none;
+            border-color: rgba(167, 139, 250, 0.6);
+            box-shadow: 0 0 0 3px rgba(167, 139, 250, 0.2);
         }
         .trait-select option {
             background: #4a5568;
             color: white;
+        }
+        .trait-row {
+            display: grid;
+            grid-template-columns: 120px 1fr auto;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.5rem;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 0.5rem;
+            transition: background 0.2s;
+        }
+        .trait-row:hover {
+            background: rgba(255, 255, 255, 0.08);
+        }
+        .trait-label {
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: rgba(255, 255, 255, 0.9);
+            text-transform: capitalize;
+        }
+        .trait-current {
+            font-size: 0.75rem;
+            color: rgba(167, 139, 250, 0.8);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 120px;
         }
     </style>
 </head>
@@ -124,7 +162,7 @@
                 </div>
                 <!-- Right side: Trait selectors -->
                 <div class="space-y-6">
-                    <div id="traitSelectors" class="space-y-4">
+                    <div id="traitSelectors" class="space-y-1.5 glass rounded-xl p-4">
                         <!-- Trait dropdowns will be populated here -->
                     </div>
                     <div class="flex gap-4 mt-8">
