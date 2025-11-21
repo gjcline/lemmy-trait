@@ -457,53 +457,94 @@ function backToSelection() {
 
 // Preview customization
 async function previewCustomization() {
-    if (!state.selectedNFT) return;
-    
+    if (!state.selectedNFT) {
+        alert('No NFT selected!');
+        return;
+    }
+
     try {
+        console.log('Starting preview generation...');
         showStatus('Generating preview...', 'info');
-        
+
         // Generate image with custom traits
         const previewBlob = await generateCustomImage();
-        
+
+        if (!previewBlob) {
+            throw new Error('Failed to generate preview blob');
+        }
+
         // Clean up old preview URL if exists
         if (state.previewImage) {
             URL.revokeObjectURL(state.previewImage);
         }
-        
+
         const previewUrl = URL.createObjectURL(previewBlob);
         state.previewImage = previewUrl;
-        
+
+        console.log('Preview URL created:', previewUrl);
+
         // Show preview
         const previewDisplay = document.getElementById('previewDisplay');
         const previewImage = document.getElementById('previewImage');
+
+        if (!previewDisplay || !previewImage) {
+            throw new Error('Preview display elements not found in DOM');
+        }
+
         previewImage.src = previewUrl;
         showElement(previewDisplay);
-        
+
         // Enable confirm button
         const confirmBtn = document.getElementById('confirmCustomizeBtn');
-        confirmBtn.disabled = false;
-        confirmBtn.classList.remove('opacity-50', 'cursor-not-allowed');
-        confirmBtn.classList.add('opacity-100');
-        
+        if (confirmBtn) {
+            confirmBtn.disabled = false;
+            confirmBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+            confirmBtn.classList.add('opacity-100');
+        }
+
         showStatus('✅ Preview generated! You can preview again after making changes.', 'info');
     } catch (err) {
         console.error('Preview error:', err);
-        showStatus('Error generating preview: ' + err.message, 'error');
-        alert('Error generating preview:\n\n' + err.message);
+        console.error('Error stack:', err.stack);
+        const errorMsg = err.message || 'Unknown error occurred';
+        showStatus('Error generating preview: ' + errorMsg, 'error');
+        alert('Error generating preview:\n\n' + errorMsg + '\n\nCheck the browser console (F12) for detailed logs.');
     }
 }
 
 // Generate image with custom traits
 async function generateCustomImage() {
-    if (!state.traitLayers || Object.keys(state.traitLayers).length === 0) {
-        throw new Error('Trait layers not loaded!');
+    console.log('🎨 Starting image generation...');
+    console.log('State:', {
+        hasTraitLayers: !!state.traitLayers,
+        layerCount: state.traitLayers ? Object.keys(state.traitLayers).length : 0,
+        hasConfig: !!config,
+        hasSelectedNFT: !!state.selectedNFT
+    });
+
+    if (!config) {
+        throw new Error('Configuration not loaded!');
     }
-    
+
+    if (!config.layerOrder || !Array.isArray(config.layerOrder)) {
+        throw new Error('Layer order not defined in config!');
+    }
+
+    if (!state.traitLayers || Object.keys(state.traitLayers).length === 0) {
+        throw new Error('Trait layers not loaded! Please wait for traits to load or refresh the page.');
+    }
+
+    if (!state.selectedNFT || !state.selectedNFT.attributes) {
+        throw new Error('No NFT selected or NFT has no attributes!');
+    }
+
     const canvas = document.createElement('canvas');
     canvas.width = config.imageSize;
     canvas.height = config.imageSize;
     const ctx = canvas.getContext('2d');
-    
+
+    console.log('Canvas created:', canvas.width, 'x', canvas.height);
+
     // Build attributes from original + custom overrides
     const updatedAttributes = state.selectedNFT.attributes.map(attr => {
         const customValue = state.customTraits[attr.trait_type.toLowerCase()];
@@ -512,51 +553,91 @@ async function generateCustomImage() {
         }
         return attr;
     });
-    
+
     // Add any new traits that weren't in original
     for (const [traitType, value] of Object.entries(state.customTraits)) {
         if (!updatedAttributes.find(a => a.trait_type.toLowerCase() === traitType.toLowerCase())) {
             updatedAttributes.push({ trait_type: traitType, value: value });
         }
     }
-    
+
+    console.log('Updated attributes:', updatedAttributes);
+
+    let layersDrawn = 0;
+    const missingLayers = [];
+
     // Draw layers in order
     for (const layerName of config.layerOrder) {
-        const trait = updatedAttributes.find(attr => 
+        const trait = updatedAttributes.find(attr =>
             attr.trait_type.toLowerCase() === layerName.toLowerCase()
         );
-        
-        if (!trait || !trait.value) {
+
+        if (!trait || !trait.value || trait.value === '') {
             if (config.optionalLayers.includes(layerName)) {
+                console.log(`Skipping optional layer: ${layerName}`);
                 continue;
             }
+            console.log(`No trait value for required layer: ${layerName}`);
             continue;
         }
-        
+
         const layerFiles = state.traitLayers[layerName];
-        if (!layerFiles || layerFiles.length === 0) continue;
-        
+        if (!layerFiles || layerFiles.length === 0) {
+            missingLayers.push(`${layerName} (no files loaded)`);
+            console.warn(`No files loaded for layer: ${layerName}`);
+            continue;
+        }
+
         let traitFile = layerFiles.find(f => f.name === trait.value);
         if (!traitFile) {
             traitFile = layerFiles.find(f => f.name.toLowerCase() === trait.value.toLowerCase());
         }
-        if (!traitFile) continue;
-        
-        await new Promise((resolve, reject) => {
-            const img = new Image();
-            img.onload = () => {
-                ctx.drawImage(img, 0, 0, config.imageSize, config.imageSize);
-                resolve();
-            };
-            img.onerror = reject;
-            img.src = traitFile.url;
-        });
+
+        if (!traitFile) {
+            const available = layerFiles.map(f => f.name).slice(0, 5).join(', ');
+            missingLayers.push(`${layerName}/${trait.value} (available: ${available}...)`);
+            console.warn(`Trait not found: ${layerName}/${trait.value}`);
+            continue;
+        }
+
+        console.log(`Drawing layer: ${layerName} - ${trait.value} from ${traitFile.url}`);
+
+        try {
+            await new Promise((resolve, reject) => {
+                const img = new Image();
+                img.onload = () => {
+                    ctx.drawImage(img, 0, 0, config.imageSize, config.imageSize);
+                    layersDrawn++;
+                    resolve();
+                };
+                img.onerror = (e) => {
+                    reject(new Error(`Failed to load image: ${traitFile.url}`));
+                };
+                img.src = traitFile.url;
+            });
+        } catch (err) {
+            throw new Error(`Error loading ${layerName}/${trait.value}: ${err.message}`);
+        }
     }
-    
+
+    console.log(`✅ Drew ${layersDrawn} layers`);
+
+    if (layersDrawn === 0) {
+        throw new Error('No layers were drawn! This may indicate a trait matching issue.');
+    }
+
+    if (missingLayers.length > 0) {
+        console.warn('Missing layers:', missingLayers);
+    }
+
     return new Promise((resolve, reject) => {
         canvas.toBlob((blob) => {
-            if (!blob) reject(new Error('Failed to generate image'));
-            else resolve(blob);
+            if (!blob) {
+                reject(new Error('Failed to generate image blob from canvas'));
+            } else {
+                console.log('✅ Image blob generated:', blob.size, 'bytes');
+                resolve(blob);
+            }
         }, 'image/png');
     });
 }
