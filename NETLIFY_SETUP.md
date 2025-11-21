@@ -29,10 +29,16 @@ VITE_IMAGE_SIZE = 1750
 - For `VITE_LAYER_ORDER` and `VITE_OPTIONAL_LAYERS`, copy the exact JSON arrays as shown
 - Make sure there are no extra spaces or line breaks
 
-### 3. Redeploy Your Site
+### 3. Redeploy Your Site (CRITICAL STEP)
 
-After adding the environment variables, trigger a new deployment:
-- Go to **Deploys** → **Trigger deploy** → **Deploy site**
+**IMPORTANT:** Environment variables are only embedded during the build process. You MUST trigger a new deployment after adding them.
+
+After adding the environment variables:
+1. Go to **Deploys** → **Trigger deploy** → **Deploy site**
+2. Wait for the build to complete
+3. The new deployment will have your environment variables embedded in the JavaScript
+
+**Note:** Simply adding environment variables without redeploying will NOT work!
 
 ### 4. How It Works
 

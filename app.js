@@ -17,22 +17,17 @@ const state = {
 // Initialize app
 async function init() {
     console.log('🚀 Trap Stars Trait Shop - Production Mode');
+    console.log('Environment check:', {
+        hasHeliusKey: !!import.meta.env.VITE_HELIUS_API_KEY,
+        hasCollection: !!import.meta.env.VITE_COLLECTION_ADDRESS,
+        mode: import.meta.env.MODE
+    });
 
-    // Load config from environment variables (production) or config.json (local dev)
-    try {
-        // Try to load from config.json first (local development)
-        const response = await fetch('config.json');
-        if (response.ok) {
-            config = await response.json();
-            console.log('✅ Configuration loaded from config.json');
-        } else {
-            throw new Error('config.json not found, trying environment variables');
-        }
-    } catch (err) {
-        console.log('⚠️ config.json not found, loading from environment variables...');
+    let configLoaded = false;
 
-        // Load from environment variables (Vite uses import.meta.env)
-        if (import.meta.env.VITE_HELIUS_API_KEY) {
+    // Try environment variables first (production)
+    if (import.meta.env.VITE_HELIUS_API_KEY) {
+        try {
             config = {
                 heliusApiKey: import.meta.env.VITE_HELIUS_API_KEY,
                 collectionAddress: import.meta.env.VITE_COLLECTION_ADDRESS,
@@ -44,11 +39,32 @@ async function init() {
                 imageSize: parseInt(import.meta.env.VITE_IMAGE_SIZE || '1750')
             };
             console.log('✅ Configuration loaded from environment variables');
-        } else {
-            console.error('❌ No configuration found');
-            showStatus('⚠️ Configuration not found. Please set up environment variables in Netlify.', 'error');
-            return;
+            configLoaded = true;
+        } catch (err) {
+            console.error('❌ Error parsing environment variables:', err);
         }
+    }
+
+    // Fall back to config.json if env vars not available (local development)
+    if (!configLoaded) {
+        try {
+            console.log('Attempting to load config.json...');
+            const response = await fetch('config.json');
+            if (response.ok) {
+                config = await response.json();
+                console.log('✅ Configuration loaded from config.json');
+                configLoaded = true;
+            }
+        } catch (err) {
+            console.log('config.json not available');
+        }
+    }
+
+    // If no config loaded, show error and stop
+    if (!configLoaded) {
+        console.error('❌ No configuration found');
+        showStatus('⚠️ Configuration not found. Please set up environment variables in Netlify.', 'error');
+        return;
     }
 
     hideElement(document.getElementById('configNotice'));
