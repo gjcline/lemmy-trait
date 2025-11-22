@@ -11,7 +11,7 @@
     "bs58": "^5.0.0",
     "buffer": "^6.0.3",
     "stream-browserify": "^3.0.0",
-    "vite": "^5.0.0"
+    "vite": "^5.4.21"
   },
   "dependencies": {
     "@bundlr-network/client": "^0.5.10",
@@ -20,6 +20,7 @@
     "@metaplex-foundation/umi": "^1.4.1",
     "@metaplex-foundation/umi-bundle-defaults": "^1.4.1",
     "@metaplex-foundation/umi-web3js-adapters": "^1.4.1",
-    "@solana/web3.js": "^1.87.6"
+    "@solana/web3.js": "^1.87.6",
+    "three": "^0.181.2"
   }
 }

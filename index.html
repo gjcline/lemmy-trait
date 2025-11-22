@@ -6,170 +6,312 @@
     <title>Trap Stars Trait Shop</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         * {
-            font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
         }
+
         body {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: #0a0a0a;
             min-height: 100vh;
+            overflow-x: hidden;
         }
+
+        #shader-background {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        #shader-background canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        #app {
+            position: relative;
+            z-index: 1;
+        }
+
         .glass {
-            background: rgba(255, 255, 255, 0.08);
-            backdrop-filter: blur(20px);
-            border: 1px solid rgba(255, 255, 255, 0.15);
-            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+            background: rgba(20, 20, 20, 0.7);
+            backdrop-filter: blur(40px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5);
         }
+
+        .glass-light {
+            background: rgba(30, 30, 30, 0.6);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+        }
+
+        .gradient-text {
+            background: linear-gradient(135deg, #fff 0%, #999 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .gradient-border {
+            position: relative;
+            border: 1px solid transparent;
+            background-clip: padding-box;
+        }
+
+        .gradient-border::before {
+            content: '';
+            position: absolute;
+            inset: -1px;
+            border-radius: inherit;
+            padding: 1px;
+            background: linear-gradient(135deg, rgba(255,255,255,0.3) 0%, rgba(255,255,255,0.05) 100%);
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor;
+            mask-composite: exclude;
+            pointer-events: none;
+        }
+
         .spinner {
-            border: 3px solid rgba(255, 255, 255, 0.3);
+            border: 3px solid rgba(255, 255, 255, 0.1);
             border-top-color: #fff;
             border-radius: 50%;
             width: 40px;
             height: 40px;
             animation: spin 1s linear infinite;
         }
+
         @keyframes spin {
             to { transform: rotate(360deg); }
         }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .fade-in {
+            animation: fadeIn 0.6s ease-out forwards;
+        }
+
         .trait-select {
-            background: rgba(255, 255, 255, 0.1);
-            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.08);
             color: white;
-            padding: 0.5rem 2rem 0.5rem 0.75rem;
-            border-radius: 0.375rem;
+            padding: 0.625rem 2rem 0.625rem 0.875rem;
+            border-radius: 0.5rem;
             transition: all 0.2s;
             font-size: 0.875rem;
+            font-weight: 500;
             cursor: pointer;
             appearance: none;
             background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='white' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
             background-repeat: no-repeat;
-            background-position: right 0.5rem center;
+            background-position: right 0.75rem center;
         }
+
         .trait-select:hover {
-            background-color: rgba(255, 255, 255, 0.15);
-            border-color: rgba(255, 255, 255, 0.3);
+            background-color: rgba(255, 255, 255, 0.06);
+            border-color: rgba(255, 255, 255, 0.15);
         }
+
         .trait-select:focus {
             outline: none;
-            border-color: rgba(167, 139, 250, 0.6);
-            box-shadow: 0 0 0 3px rgba(167, 139, 250, 0.2);
+            border-color: rgba(255, 255, 255, 0.25);
+            box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.05);
         }
+
         .trait-select option {
-            background: #4a5568;
+            background: #1a1a1a;
             color: white;
         }
+
         .trait-row {
             display: grid;
-            grid-template-columns: 120px 1fr auto;
+            grid-template-columns: 140px 1fr auto;
             align-items: center;
-            gap: 0.75rem;
-            padding: 0.5rem;
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 0.5rem;
-            transition: background 0.2s;
+            gap: 1rem;
+            padding: 0.75rem;
+            background: rgba(255, 255, 255, 0.02);
+            border-radius: 0.625rem;
+            transition: all 0.2s;
+            border: 1px solid transparent;
         }
+
         .trait-row:hover {
-            background: rgba(255, 255, 255, 0.08);
+            background: rgba(255, 255, 255, 0.04);
+            border-color: rgba(255, 255, 255, 0.06);
         }
+
         .trait-label {
             font-size: 0.875rem;
-            font-weight: 500;
-            color: rgba(255, 255, 255, 0.9);
+            font-weight: 600;
+            color: rgba(255, 255, 255, 0.95);
             text-transform: capitalize;
+            letter-spacing: -0.01em;
         }
+
         .trait-current {
             font-size: 0.75rem;
-            color: rgba(167, 139, 250, 0.8);
+            color: rgba(255, 255, 255, 0.45);
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
-            max-width: 120px;
+            max-width: 140px;
+            font-weight: 500;
+        }
+
+        .nft-card {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .nft-card:hover {
+            transform: translateY(-4px);
+            border-color: rgba(255, 255, 255, 0.15);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.85) 100%);
+            color: #0a0a0a;
+            font-weight: 600;
+            transition: all 0.2s;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-primary:hover {
+            background: linear-gradient(135deg, rgba(255,255,255,1) 0%, rgba(255,255,255,0.95) 100%);
+            transform: translateY(-1px);
+            box-shadow: 0 10px 30px rgba(255, 255, 255, 0.15);
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.05);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.08);
+            border-color: rgba(255, 255, 255, 0.15);
+        }
+
+        .section-title {
+            font-size: 2.5rem;
+            font-weight: 300;
+            letter-spacing: -0.02em;
+            color: white;
+            margin-bottom: 1rem;
+        }
+
+        @media (max-width: 768px) {
+            .section-title {
+                font-size: 2rem;
+            }
         }
     </style>
 </head>
 <body class="text-white">
+    <!-- Shader Background -->
+    <div id="shader-background"></div>
+
     <div id="app" class="container mx-auto p-4 md:p-8 max-w-7xl">
         <!-- Header -->
-        <div class="text-center mb-8">
-            <h1 class="text-5xl font-bold mb-4 bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent tracking-tight">
-                Trap Stars Trait Shop
+        <div class="text-center mb-12 fade-in">
+            <h1 class="text-6xl md:text-7xl font-light tracking-tight mb-4" style="font-weight: 300; letter-spacing: -0.02em;">
+                Trap Stars
             </h1>
-            <p class="text-lg mb-2 text-purple-100 font-light">Customize Your NFT Traits</p>
+            <p class="text-lg text-gray-400 font-light">Trait Customization Shop</p>
             <div id="status" class="text-sm mt-4"></div>
         </div>
 
         <!-- Config Notice -->
-        <div id="configNotice" class="glass rounded-xl p-6 mb-8 border-2 border-yellow-500">
-            <h3 class="text-xl font-bold mb-3 text-yellow-300">⚙️ Configuration Required</h3>
-            <p class="mb-4">Before using the trait shop, you need to set up your configuration:</p>
-            <ol class="list-decimal list-inside space-y-2 text-sm mb-4">
-                <li>Create a <code class="bg-black bg-opacity-30 px-2 py-1 rounded">config.json</code> file</li>
-                <li>Add your private key, Helius API key, and collection details</li>
-                <li>Upload your trait layer files</li>
-            </ol>
-            <button onclick="showConfigHelp()" class="bg-yellow-600 hover:bg-yellow-700 px-6 py-2 rounded-lg font-bold">
-                Show Configuration Instructions
-            </button>
+        <div id="configNotice" class="glass rounded-2xl p-8 mb-8 border-amber-500/30 hidden">
+            <div class="flex items-start gap-4">
+                <div class="text-3xl">⚙️</div>
+                <div class="flex-1">
+                    <h3 class="text-xl font-semibold mb-3 text-amber-200">Configuration Required</h3>
+                    <p class="mb-4 text-gray-300 text-sm leading-relaxed">Before using the trait shop, set up your configuration with API keys and collection details.</p>
+                    <button onclick="showConfigHelp()" class="btn-secondary px-5 py-2.5 rounded-xl text-sm">
+                        View Setup Instructions
+                    </button>
+                </div>
+            </div>
         </div>
 
         <!-- Wallet Connection -->
-        <div id="connectSection" class="glass rounded-xl p-8 text-center mb-8">
-            <button id="connectBtn" class="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-bold py-4 px-8 rounded-xl text-lg transition-all transform hover:scale-105 shadow-lg">
+        <div id="connectSection" class="glass rounded-2xl p-12 text-center mb-8 fade-in">
+            <div class="mb-6">
+                <svg class="w-16 h-16 mx-auto mb-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+                </svg>
+            </div>
+            <button id="connectBtn" class="btn-primary py-4 px-10 rounded-xl text-base">
                 Connect Phantom Wallet
             </button>
+            <p class="text-sm text-gray-500 mt-4">Connect your wallet to access your NFTs</p>
         </div>
 
         <!-- Wallet Info -->
-        <div id="walletInfo" class="glass rounded-xl p-4 mb-8 hidden">
+        <div id="walletInfo" class="glass rounded-2xl p-6 mb-8 hidden fade-in">
             <div class="flex justify-between items-center flex-wrap gap-4">
                 <div>
-                    <p class="text-sm text-purple-300">Connected Wallet</p>
+                    <p class="text-xs text-gray-400 uppercase tracking-wider mb-1">Connected Wallet</p>
                     <p id="walletAddress" class="font-mono text-sm"></p>
-                    <p id="nftCount" class="text-xs text-purple-200 mt-1"></p>
-                    <div id="loadedCategories" class="mt-2"></div>
+                    <p id="nftCount" class="text-xs text-gray-400 mt-2"></p>
+                    <div id="loadedCategories" class="mt-3"></div>
                 </div>
                 <div class="flex gap-2 flex-wrap">
-                    <button id="refreshBtn" class="bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded-lg text-sm font-medium transition-all">
-                        🔄 Refresh
+                    <button id="refreshBtn" class="btn-secondary px-4 py-2 rounded-lg text-sm">
+                        <span class="inline-block">↻</span> Refresh
                     </button>
-                    <button id="disconnectBtn" class="bg-red-600 hover:bg-red-700 px-4 py-2 rounded-lg text-sm font-medium transition-all">
+                    <button id="disconnectBtn" class="bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 px-4 py-2 rounded-lg text-sm font-medium transition-all">
                         Disconnect
                     </button>
                 </div>
             </div>
         </div>
 
-        <!-- Trait Customization Page (replaces modal) -->
-        <div id="customizePage" class="hidden">
-            <div class="flex justify-between items-center mb-6">
-                <h2 class="text-3xl font-bold">Customize Traits</h2>
-                <button id="backToSelectionBtn" class="bg-gray-700 hover:bg-gray-600 px-6 py-3 rounded-lg font-medium transition-all">
-                    ← Back to Selection
+        <!-- Trait Customization Page -->
+        <div id="customizePage" class="hidden fade-in">
+            <div class="flex justify-between items-center mb-8">
+                <h2 class="section-title">Customize Traits</h2>
+                <button id="backToSelectionBtn" class="btn-secondary px-6 py-3 rounded-xl">
+                    ← Back
                 </button>
             </div>
             <div id="customizeContent" class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                <!-- Left side: NFT image and preview -->
+                <!-- Left: NFT Display -->
                 <div class="space-y-6">
-                    <div id="nftDisplay" class="glass rounded-xl p-6 text-center">
-                        <!-- NFT info and image will go here -->
+                    <div id="nftDisplay" class="glass rounded-2xl p-8 text-center">
+                        <!-- NFT info and image -->
                     </div>
-                    <div id="previewDisplay" class="glass rounded-xl p-6 text-center hidden">
-                        <h3 class="text-xl font-semibold mb-4">Preview</h3>
-                        <img id="previewImage" src="" alt="Preview" class="w-full rounded-lg shadow-lg">
+                    <div id="previewDisplay" class="glass rounded-2xl p-8 text-center hidden">
+                        <h3 class="text-lg font-semibold mb-4 text-gray-300">Preview</h3>
+                        <img id="previewImage" src="" alt="Preview" class="w-full rounded-xl shadow-2xl">
                     </div>
                 </div>
-                <!-- Right side: Trait selectors -->
+                <!-- Right: Trait Selectors -->
                 <div class="space-y-6">
-                    <div id="traitSelectors" class="space-y-1.5 glass rounded-xl p-4">
-                        <!-- Trait dropdowns will be populated here -->
+                    <div id="traitSelectors" class="space-y-2 glass rounded-2xl p-6">
+                        <!-- Trait dropdowns -->
                     </div>
                     <div class="flex gap-4 mt-8">
-                        <button id="previewCustomizeBtn" class="flex-1 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 px-6 py-3 rounded-lg font-medium transition-all">
+                        <button id="previewCustomizeBtn" class="flex-1 btn-primary px-6 py-4 rounded-xl">
                             Preview Changes
                         </button>
-                        <button id="confirmCustomizeBtn" class="flex-1 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 px-6 py-3 rounded-lg font-medium transition-all opacity-50 cursor-not-allowed" disabled>
+                        <button id="confirmCustomizeBtn" class="flex-1 bg-green-500/90 hover:bg-green-500 text-white px-6 py-4 rounded-xl font-semibold transition-all opacity-50 cursor-not-allowed" disabled>
                             Confirm & Update
                         </button>
                     </div>
@@ -180,18 +322,18 @@
         <!-- Loading -->
         <div id="loading" class="text-center py-20 hidden">
             <div class="spinner mx-auto mb-4"></div>
-            <p id="loadingText" class="text-lg"></p>
-            <p id="loadingSubtext" class="text-sm text-purple-200 mt-2"></p>
+            <p id="loadingText" class="text-lg font-light"></p>
+            <p id="loadingSubtext" class="text-sm text-gray-400 mt-2"></p>
         </div>
 
         <!-- Content Area -->
         <div id="content"></div>
 
         <!-- Progress Modal -->
-        <div id="progressModal" class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center hidden z-50">
-            <div class="glass rounded-xl p-8 max-w-md w-full mx-4">
-                <div class="spinner mx-auto mb-4"></div>
-                <h3 class="text-xl font-bold text-center mb-4">Processing Trait Swap</h3>
+        <div id="progressModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center hidden z-50">
+            <div class="glass rounded-2xl p-8 max-w-md w-full mx-4">
+                <div class="spinner mx-auto mb-6"></div>
+                <h3 class="text-xl font-semibold text-center mb-6">Processing Trait Swap</h3>
                 <div id="progressSteps" class="space-y-3"></div>
             </div>
         </div>

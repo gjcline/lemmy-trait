@@ -1,8 +1,11 @@
 // Trap Stars Trait Shop - Production App
 // This file handles all wallet connections, NFT fetching, image generation, and blockchain transactions
 
+import { DotShaderBackground } from './shader-background.js';
+
 // Load configuration
 let config = null;
+let shaderBackground = null;
 
 // State management
 const state = {
@@ -22,6 +25,13 @@ async function init() {
         hasCollection: !!import.meta.env.VITE_COLLECTION_ADDRESS,
         mode: import.meta.env.MODE
     });
+
+    // Initialize shader background
+    const shaderContainer = document.getElementById('shader-background');
+    if (shaderContainer) {
+        shaderBackground = new DotShaderBackground(shaderContainer);
+        console.log('✅ Shader background initialized');
+    }
 
     let configLoaded = false;
 
@@ -353,26 +363,30 @@ async function loadTraitLayersFromPublic() {
 // Render NFT selection
 function renderNFTSelection() {
     const html = `
-        <h2 class="text-3xl font-bold mb-6 text-center">Select Trap Star to Customize</h2>
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            ${state.nfts.map((nft, idx) => `
-                <div onclick="selectNFTToCustomize(${idx})" class="glass rounded-xl p-4 cursor-pointer hover:bg-opacity-20 border-2 border-transparent hover:border-purple-400 transition-all transform hover:scale-105">
-                    <img src="${nft.image}" alt="${nft.name}" class="w-full rounded-lg mb-3 shadow-lg">
-                    <h3 class="font-bold mb-2 text-lg">${nft.name}</h3>
-                    <div class="space-y-1 text-sm text-purple-200">
-                        ${nft.attributes.slice(0, 3).map(attr => `
-                            <div class="flex justify-between">
-                                <span class="capitalize">${attr.trait_type}:</span>
-                                <span class="font-semibold">${attr.value}</span>
-                            </div>
-                        `).join('')}
-                        ${nft.attributes.length > 3 ? `<p class="text-xs text-purple-300 mt-2">+${nft.attributes.length - 3} more traits</p>` : ''}
+        <div class="fade-in">
+            <h2 class="section-title text-center mb-12">Select Your Trap Star</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                ${state.nfts.map((nft, idx) => `
+                    <div onclick="selectNFTToCustomize(${idx})" class="nft-card glass rounded-2xl p-5 cursor-pointer transition-all">
+                        <div class="relative overflow-hidden rounded-xl mb-4">
+                            <img src="${nft.image}" alt="${nft.name}" class="w-full aspect-square object-cover">
+                        </div>
+                        <h3 class="font-semibold mb-3 text-lg tracking-tight">${nft.name}</h3>
+                        <div class="space-y-2 text-sm">
+                            ${nft.attributes.slice(0, 3).map(attr => `
+                                <div class="flex justify-between items-center text-gray-300">
+                                    <span class="capitalize text-gray-400">${attr.trait_type}:</span>
+                                    <span class="font-medium">${attr.value}</span>
+                                </div>
+                            `).join('')}
+                            ${nft.attributes.length > 3 ? `<p class="text-xs text-gray-500 mt-3 pt-2 border-t border-white/5">+${nft.attributes.length - 3} more traits</p>` : ''}
+                        </div>
                     </div>
-                </div>
-            `).join('')}
+                `).join('')}
+            </div>
         </div>
     `;
-    
+
     document.getElementById('content').innerHTML = html;
 }
 
