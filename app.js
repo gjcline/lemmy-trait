@@ -2,6 +2,7 @@
 // This file handles all wallet connections, NFT fetching, image generation, and blockchain transactions
 
 import { DotShaderBackground } from './shader-background.js';
+import { getBackgroundUrl } from './background-urls.js';
 
 // Load configuration
 let config = null;
@@ -634,6 +635,42 @@ async function generateCustomImage() {
             continue;
         }
 
+        // Special handling for background layer - use Cloudinary URLs
+        if (layerName.toLowerCase() === 'background') {
+            const backgroundUrl = getBackgroundUrl(trait.value);
+
+            if (!backgroundUrl) {
+                console.warn(`Background URL not found for: ${trait.value}`);
+                if (config.optionalLayers.includes(layerName)) {
+                    continue;
+                }
+                missingLayers.push(`${layerName}/${trait.value} (no URL mapping)`);
+                continue;
+            }
+
+            console.log(`Drawing background: ${trait.value} from ${backgroundUrl}`);
+
+            try {
+                await new Promise((resolve, reject) => {
+                    const img = new Image();
+                    img.crossOrigin = 'anonymous'; // Enable CORS for Cloudinary
+                    img.onload = () => {
+                        ctx.drawImage(img, 0, 0, config.imageSize, config.imageSize);
+                        layersDrawn++;
+                        resolve();
+                    };
+                    img.onerror = (e) => {
+                        reject(new Error(`Failed to load background: ${backgroundUrl}`));
+                    };
+                    img.src = backgroundUrl;
+                });
+            } catch (err) {
+                throw new Error(`Error loading background ${trait.value}: ${err.message}`);
+            }
+            continue;
+        }
+
+        // Regular layer handling for non-background layers
         const layerFiles = state.traitLayers[layerName];
         if (!layerFiles || layerFiles.length === 0) {
             missingLayers.push(`${layerName} (no files loaded)`);
