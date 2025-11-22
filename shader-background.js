@@ -198,10 +198,9 @@ export class DotShaderBackground {
     }
 
     onMouseMove(event) {
-        // Get canvas bounding rect for accurate positioning
-        const rect = this.renderer.domElement.getBoundingClientRect();
-        this.mouse.x = (event.clientX - rect.left) / rect.width;
-        this.mouse.y = 1 - ((event.clientY - rect.top) / rect.height);
+        // Since canvas is fixed full viewport, use window dimensions
+        this.mouse.x = event.clientX / window.innerWidth;
+        this.mouse.y = 1 - (event.clientY / window.innerHeight);
 
         this.mouseTrail.push({
             x: this.mouse.x,
@@ -218,10 +217,9 @@ export class DotShaderBackground {
     onTouchMove(event) {
         if (event.touches.length > 0) {
             const touch = event.touches[0];
-            // Get canvas bounding rect for accurate positioning
-            const rect = this.renderer.domElement.getBoundingClientRect();
-            this.mouse.x = (touch.clientX - rect.left) / rect.width;
-            this.mouse.y = 1 - ((touch.clientY - rect.top) / rect.height);
+            // Since canvas is fixed full viewport, use window dimensions
+            this.mouse.x = touch.clientX / window.innerWidth;
+            this.mouse.y = 1 - (touch.clientY / window.innerHeight);
 
             this.mouseTrail.push({
                 x: this.mouse.x,
