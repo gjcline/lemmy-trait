@@ -12,10 +12,14 @@ export class DotShaderBackground {
             powerPreference: 'high-performance'
         });
 
-        this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-        this.renderer.setSize(window.innerWidth, window.innerHeight);
+        this.renderer.setPixelRatio(window.devicePixelRatio);
+        this.renderer.setSize(window.innerWidth, window.innerHeight, true);
         this.renderer.outputColorSpace = THREE.SRGBColorSpace;
         this.renderer.toneMapping = THREE.NoToneMapping;
+
+        // Ensure canvas fills container
+        this.renderer.domElement.style.width = '100%';
+        this.renderer.domElement.style.height = '100%';
 
         container.appendChild(this.renderer.domElement);
 
@@ -193,7 +197,9 @@ export class DotShaderBackground {
     }
 
     onResize() {
-        this.renderer.setSize(window.innerWidth, window.innerHeight);
+        this.renderer.setSize(window.innerWidth, window.innerHeight, true);
+        this.renderer.domElement.style.width = '100%';
+        this.renderer.domElement.style.height = '100%';
         this.material.uniforms.resolution.value.set(window.innerWidth, window.innerHeight);
     }
 
