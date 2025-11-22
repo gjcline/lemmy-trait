@@ -8,6 +8,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         * {
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
@@ -222,6 +223,58 @@
                 font-size: 2rem;
             }
         }
+
+        /* Step Indicator Styles */
+        .step-indicator {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(255, 255, 255, 0.05);
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            color: rgba(255, 255, 255, 0.4);
+            font-weight: 600;
+            font-size: 1.125rem;
+            transition: all 0.3s;
+        }
+
+        .step-indicator.active {
+            background: linear-gradient(135deg, rgba(255,255,255,0.15) 0%, rgba(255,255,255,0.1) 100%);
+            border-color: rgba(255, 255, 255, 0.3);
+            color: white;
+            box-shadow: 0 4px 16px rgba(255, 255, 255, 0.1);
+        }
+
+        .step-indicator.completed {
+            background: linear-gradient(135deg, rgba(34,197,94,0.2) 0%, rgba(34,197,94,0.15) 100%);
+            border-color: rgba(34,197,94,0.4);
+            color: rgb(34,197,94);
+        }
+
+        .step-line {
+            width: 60px;
+            height: 2px;
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        /* Trait selection card styles */
+        .trait-card {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            border: 2px solid rgba(255, 255, 255, 0.08);
+            cursor: pointer;
+        }
+
+        .trait-card:hover {
+            border-color: rgba(255, 255, 255, 0.2);
+            transform: translateY(-2px);
+        }
+
+        .trait-card.selected {
+            border-color: rgba(34,197,94,0.5);
+            background: rgba(34,197,94,0.05);
+        }
     </style>
 </head>
 <body class="text-white">
@@ -285,6 +338,43 @@
             </div>
         </div>
 
+        <!-- Mode Selection -->
+        <div id="modeSelection" class="hidden fade-in">
+            <div class="text-center mb-8">
+                <h2 class="text-3xl font-light mb-3">Choose Your Experience</h2>
+                <p class="text-gray-400">Select how you want to use the Trap Stars customization tool</p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto">
+                <!-- Playground Mode -->
+                <div class="glass rounded-2xl p-8 hover:border-blue-500/50 transition-all cursor-pointer" id="playgroundModeCard">
+                    <div class="text-4xl mb-4">🎨</div>
+                    <h3 class="text-2xl font-semibold mb-3">Playground</h3>
+                    <p class="text-gray-400 mb-6 leading-relaxed">Explore and experiment with all traits freely. Create custom Trap Stars designs without blockchain interactions.</p>
+                    <button id="playgroundModeBtn" class="btn-primary w-full py-3 rounded-xl">
+                        Enter Playground
+                    </button>
+                </div>
+
+                <!-- Swap Mode -->
+                <div class="glass rounded-2xl p-8 hover:border-green-500/50 transition-all cursor-pointer" id="swapModeCard">
+                    <div class="text-4xl mb-4">🔥</div>
+                    <h3 class="text-2xl font-semibold mb-3">Burn & Swap Trait</h3>
+                    <p class="text-gray-400 mb-6 leading-relaxed">Burn one Trap Star to extract a trait and apply it to another. Requires 2+ NFTs.</p>
+                    <button id="swapModeBtn" class="btn-primary w-full py-3 rounded-xl">
+                        Start Swap
+                    </button>
+                    <p id="nftRequirement" class="text-xs text-gray-500 mt-3 text-center"></p>
+                </div>
+            </div>
+
+            <div class="text-center mt-8">
+                <button id="backToWalletBtn" class="text-gray-400 hover:text-white transition-colors text-sm">
+                    ← Back to Wallet
+                </button>
+            </div>
+        </div>
+
         <!-- Trait Customization Page -->
         <div id="customizePage" class="hidden fade-in">
             <div class="flex justify-between items-center mb-8">
@@ -321,6 +411,39 @@
             </div>
         </div>
 
+        <!-- Swap Page (Multi-Step) -->
+        <div id="swapPage" class="hidden fade-in">
+            <!-- Step Indicator -->
+            <div class="mb-8">
+                <div class="flex items-center justify-center space-x-2">
+                    <div id="stepIndicator1" class="step-indicator active">1</div>
+                    <div class="step-line"></div>
+                    <div id="stepIndicator2" class="step-indicator">2</div>
+                    <div class="step-line"></div>
+                    <div id="stepIndicator3" class="step-indicator">3</div>
+                    <div class="step-line"></div>
+                    <div id="stepIndicator4" class="step-indicator">4</div>
+                </div>
+                <div class="text-center mt-4">
+                    <h2 id="stepTitle" class="section-title">Select Donor NFT</h2>
+                    <p id="stepDescription" class="text-gray-400 mt-2">Choose the Trap Star to burn for its trait</p>
+                </div>
+            </div>
+
+            <!-- Step Content Container -->
+            <div id="swapStepContent"></div>
+
+            <!-- Navigation Buttons -->
+            <div class="flex gap-4 mt-8 justify-center">
+                <button id="swapBackBtn" class="btn-secondary px-8 py-3 rounded-xl">
+                    ← Back
+                </button>
+                <button id="swapNextBtn" class="btn-primary px-8 py-3 rounded-xl" disabled>
+                    Next →
+                </button>
+            </div>
+        </div>
+
         <!-- Loading -->
         <div id="loading" class="text-center py-20 hidden">
             <div class="spinner mx-auto mb-4"></div>
@@ -341,6 +464,7 @@
         </div>
     </div>
 
+    <script type="module" src="swap-ui.js"></script>
     <script type="module" src="app.js"></script>
 </body>
 </html>

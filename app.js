@@ -15,7 +15,16 @@ const state = {
     traitLayers: {},
     selectedNFT: null,
     customTraits: {}, // Store selected custom traits
-    previewImage: null
+    previewImage: null,
+    mode: null, // 'playground' or 'swap'
+    // Swap-specific state
+    swap: {
+        step: 1, // Current step in swap flow (1-4)
+        donorNFT: null, // NFT to burn for trait
+        recipientNFT: null, // NFT to receive trait
+        selectedTrait: null, // {category, value} of trait to swap
+        transactionSignatures: {} // Store burn and update signatures
+    }
 };
 
 // Initialize app
@@ -102,6 +111,15 @@ function setupEventListeners() {
     document.getElementById('backToSelectionBtn').addEventListener('click', backToSelection);
     document.getElementById('previewCustomizeBtn').addEventListener('click', previewCustomization);
     document.getElementById('confirmCustomizeBtn').addEventListener('click', confirmCustomization);
+
+    // Mode selection listeners
+    document.getElementById('playgroundModeBtn').addEventListener('click', () => selectMode('playground'));
+    document.getElementById('swapModeBtn').addEventListener('click', () => selectMode('swap'));
+    document.getElementById('backToWalletBtn').addEventListener('click', backToModeSelection);
+
+    // Swap flow listeners
+    document.getElementById('swapBackBtn').addEventListener('click', handleSwapBack);
+    document.getElementById('swapNextBtn').addEventListener('click', handleSwapNext);
 }
 
 // Show configuration help
@@ -187,10 +205,13 @@ async function connectWallet() {
         
         hideElement(document.getElementById('connectSection'));
         showElement(document.getElementById('walletInfo'));
-        
+
         showStatus('Connected! Fetching your Trap Stars...', 'info');
         await fetchUserNFTs(state.walletAddress);
-        
+
+        // Show mode selection after fetching NFTs
+        showModeSelection();
+
     } catch (err) {
         console.error('❌ Connection error:', err);
         showStatus('Failed to connect: ' + err.message, 'error');
@@ -201,10 +222,125 @@ async function disconnectWallet() {
     await window.solana.disconnect();
     state.walletAddress = null;
     state.nfts = [];
+    state.mode = null;
+    state.swap = {
+        step: 1,
+        donorNFT: null,
+        recipientNFT: null,
+        selectedTrait: null,
+        transactionSignatures: {}
+    };
     showElement(document.getElementById('connectSection'));
     hideElement(document.getElementById('walletInfo'));
+    hideElement(document.getElementById('modeSelection'));
     hideElement(document.getElementById('content'));
+    hideElement(document.getElementById('customizePage'));
+    hideElement(document.getElementById('swapPage'));
     showStatus('Disconnected', 'info');
+}
+
+// Show mode selection screen
+function showModeSelection() {
+    const nftCount = state.nfts.length;
+    const swapBtn = document.getElementById('swapModeBtn');
+    const swapCard = document.getElementById('swapModeCard');
+    const nftReq = document.getElementById('nftRequirement');
+
+    // Require at least 2 NFTs for burn-and-swap
+    if (nftCount >= 2) {
+        swapBtn.disabled = false;
+        swapBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+        swapCard.classList.remove('opacity-50');
+        nftReq.textContent = `${nftCount} Trap Stars found - Ready to swap!`;
+        nftReq.classList.remove('text-red-400', 'text-yellow-400');
+        nftReq.classList.add('text-green-400');
+    } else if (nftCount === 1) {
+        swapBtn.disabled = true;
+        swapBtn.classList.add('opacity-50', 'cursor-not-allowed');
+        swapCard.classList.add('opacity-50');
+        nftReq.textContent = 'Need at least 2 Trap Stars (1 to burn, 1 to upgrade)';
+        nftReq.classList.remove('text-green-400', 'text-red-400');
+        nftReq.classList.add('text-yellow-400');
+    } else {
+        swapBtn.disabled = true;
+        swapBtn.classList.add('opacity-50', 'cursor-not-allowed');
+        swapCard.classList.add('opacity-50');
+        nftReq.textContent = 'No Trap Stars found in wallet';
+        nftReq.classList.remove('text-green-400', 'text-yellow-400');
+        nftReq.classList.add('text-red-400');
+    }
+
+    hideElement(document.getElementById('content'));
+    hideElement(document.getElementById('customizePage'));
+    hideElement(document.getElementById('swapPage'));
+    showElement(document.getElementById('modeSelection'));
+    showStatus('Choose your mode', 'info');
+}
+
+// Select a mode (playground or swap)
+function selectMode(mode) {
+    console.log('Mode selected:', mode);
+    state.mode = mode;
+
+    if (mode === 'playground') {
+        enterPlaygroundMode();
+    } else if (mode === 'swap') {
+        if (state.nfts.length < 2) {
+            alert('You need at least 2 Trap Stars to use burn & swap mode.');
+            return;
+        }
+        hideElement(document.getElementById('modeSelection'));
+        showElement(document.getElementById('swapPage'));
+        renderSwapStep();
+        showStatus('Burn & Swap: Step 1 of 4', 'info');
+    }
+}
+
+// Enter playground mode with random traits
+function enterPlaygroundMode() {
+    const defaultNFT = {
+        id: 'playground',
+        name: 'Playground Trap Star',
+        image: null,
+        attributes: getRandomTraits()
+    };
+
+    state.selectedNFT = defaultNFT;
+    hideElement(document.getElementById('modeSelection'));
+    showElement(document.getElementById('customizePage'));
+    renderCustomizationPage();
+    showStatus('Playground Mode - Experiment freely!', 'info');
+}
+
+// Get random traits for playground
+function getRandomTraits() {
+    const traits = {};
+    for (const [category, items] of Object.entries(state.traitLayers)) {
+        if (items.length > 0) {
+            const randomIndex = Math.floor(Math.random() * items.length);
+            traits[category] = items[randomIndex];
+        }
+    }
+    return traits;
+}
+
+// Back to mode selection
+function backToModeSelection() {
+    state.mode = null;
+    state.selectedNFT = null;
+    state.customTraits = {};
+    state.previewImage = null;
+    state.swap = {
+        step: 1,
+        donorNFT: null,
+        recipientNFT: null,
+        selectedTrait: null,
+        transactionSignatures: {}
+    };
+    hideElement(document.getElementById('content'));
+    hideElement(document.getElementById('customizePage'));
+    hideElement(document.getElementById('swapPage'));
+    showModeSelection();
 }
 
 // Fetch user's NFTs using Helius DAS API
@@ -874,6 +1010,150 @@ async function regenerateImage() {
         }, 'image/png');
     });
 }
+
+// Swap step rendering and navigation
+function renderSwapStep() {
+    window.renderSwapStep(state, config);
+}
+
+function handleSwapBack() {
+    if (state.swap.step === 1) {
+        // Cancel and go back to mode selection
+        backToModeSelection();
+    } else {
+        // Go to previous step
+        state.swap.step--;
+        renderSwapStep();
+        showStatus(`Burn & Swap: Step ${state.swap.step} of 4`, 'info');
+    }
+}
+
+async function handleSwapNext() {
+    if (state.swap.step === 4) {
+        // Execute the burn and swap
+        await executeSwap();
+    } else {
+        // Go to next step
+        state.swap.step++;
+        renderSwapStep();
+        showStatus(`Burn & Swap: Step ${state.swap.step} of 4`, 'info');
+    }
+}
+
+// Execute the swap transaction
+async function executeSwap() {
+    const confirmed = confirm(
+        `⚠️ FINAL CONFIRMATION ⚠️\n\n` +
+        `You are about to:\n` +
+        `• PERMANENTLY BURN: ${state.swap.donorNFT.name}\n` +
+        `• Extract trait: ${state.swap.selectedTrait.category} - ${state.swap.selectedTrait.value}\n` +
+        `• Apply to: ${state.swap.recipientNFT.name}\n\n` +
+        `This action CANNOT be undone!\n\n` +
+        `Type 'CONFIRM' to proceed.`
+    );
+
+    if (!confirmed) return;
+
+    try {
+        const { executeBurnAndSwap } = await import('./swap.js');
+
+        // Show progress during execution
+        showLoading('Executing burn and swap...', 'Please wait, do not close this page');
+
+        const result = await executeBurnAndSwap(
+            state,
+            config,
+            generateImageFromTraits,
+            (msg, submsg) => {
+                document.getElementById('loadingText').textContent = msg;
+                document.getElementById('loadingSubtext').textContent = submsg;
+            }
+        );
+
+        hideLoading();
+
+        // Show success
+        showSwapSuccess(result);
+
+        // Refresh NFTs
+        await fetchUserNFTs(state.walletAddress);
+
+    } catch (error) {
+        hideLoading();
+        console.error('Swap failed:', error);
+        alert(`Swap failed: ${error.message}\n\nPlease check the console for details.`);
+    }
+}
+
+// Show swap success screen
+function showSwapSuccess(result) {
+    hideElement(document.getElementById('swapPage'));
+
+    const successHTML = `
+        <div class="max-w-4xl mx-auto text-center fade-in">
+            <div class="text-6xl mb-6">✅</div>
+            <h2 class="text-4xl font-light mb-4">Swap Successful!</h2>
+            <p class="text-gray-400 mb-8">Your Trap Star has been upgraded with the new trait</p>
+
+            <div class="glass rounded-2xl p-8 mb-6">
+                <h3 class="text-xl font-semibold mb-4">Transaction Details</h3>
+                <div class="space-y-3 text-left">
+                    <div>
+                        <p class="text-xs text-gray-400 mb-1">Burn Signature</p>
+                        <a href="https://solscan.io/tx/${result.burnSignature}" target="_blank"
+                           class="font-mono text-sm text-blue-400 hover:text-blue-300 break-all">
+                            ${result.burnSignature}
+                        </a>
+                    </div>
+                    <div>
+                        <p class="text-xs text-gray-400 mb-1">Update Signature</p>
+                        <a href="https://solscan.io/tx/${result.updateSignature}" target="_blank"
+                           class="font-mono text-sm text-blue-400 hover:text-blue-300 break-all">
+                            ${result.updateSignature}
+                        </a>
+                    </div>
+                    <div>
+                        <p class="text-xs text-gray-400 mb-1">New Image</p>
+                        <a href="${result.imageUrl}" target="_blank"
+                           class="font-mono text-sm text-blue-400 hover:text-blue-300 break-all">
+                            ${result.imageUrl}
+                        </a>
+                    </div>
+                    <div>
+                        <p class="text-xs text-gray-400 mb-1">New Metadata</p>
+                        <a href="${result.metadataUrl}" target="_blank"
+                           class="font-mono text-sm text-blue-400 hover:text-blue-300 break-all">
+                            ${result.metadataUrl}
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex gap-4 justify-center">
+                <button onclick="showModeSelection()" class="btn-primary px-8 py-3 rounded-xl">
+                    Perform Another Swap
+                </button>
+                <button onclick="location.reload()" class="btn-secondary px-8 py-3 rounded-xl">
+                    View Collection
+                </button>
+            </div>
+        </div>
+    `;
+
+    document.getElementById('content').innerHTML = successHTML;
+    showElement(document.getElementById('content'));
+    showStatus('✅ Swap completed successfully!', 'info');
+}
+
+// Wrapper function for renderCustomizationPage
+function renderCustomizationPage() {
+    openCustomizePage();
+}
+
+// Expose state and config globally for swap-ui
+window.appState = state;
+window.appConfig = config;
+window.showModeSelection = showModeSelection;
 
 // OLD SWAP FUNCTION REMOVED - replaced with customization flow above
 
