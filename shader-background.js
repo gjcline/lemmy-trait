@@ -12,14 +12,16 @@ export class DotShaderBackground {
             powerPreference: 'high-performance'
         });
 
-        this.renderer.setPixelRatio(window.devicePixelRatio);
-        this.renderer.setSize(window.innerWidth, window.innerHeight, true);
+        this.renderer.setPixelRatio(1);
+        this.renderer.setSize(window.innerWidth, window.innerHeight, false);
         this.renderer.outputColorSpace = THREE.SRGBColorSpace;
         this.renderer.toneMapping = THREE.NoToneMapping;
 
-        // Ensure canvas fills container
-        this.renderer.domElement.style.width = '100%';
-        this.renderer.domElement.style.height = '100%';
+        // Set canvas element size explicitly
+        this.renderer.domElement.style.width = window.innerWidth + 'px';
+        this.renderer.domElement.style.height = window.innerHeight + 'px';
+        this.renderer.domElement.width = window.innerWidth;
+        this.renderer.domElement.height = window.innerHeight;
 
         container.appendChild(this.renderer.domElement);
 
@@ -197,9 +199,11 @@ export class DotShaderBackground {
     }
 
     onResize() {
-        this.renderer.setSize(window.innerWidth, window.innerHeight, true);
-        this.renderer.domElement.style.width = '100%';
-        this.renderer.domElement.style.height = '100%';
+        this.renderer.setSize(window.innerWidth, window.innerHeight, false);
+        this.renderer.domElement.style.width = window.innerWidth + 'px';
+        this.renderer.domElement.style.height = window.innerHeight + 'px';
+        this.renderer.domElement.width = window.innerWidth;
+        this.renderer.domElement.height = window.innerHeight;
         this.material.uniforms.resolution.value.set(window.innerWidth, window.innerHeight);
     }
 
