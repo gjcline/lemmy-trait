@@ -425,8 +425,10 @@ function openCustomizePage() {
         </div>
     `;
     
-    // Build trait selection dropdowns based on layer order
-    const traitHTML = config.layerOrder.map(layerName => {
+    // Build trait selection dropdowns based on layer order (exclude logo)
+    const traitHTML = config.layerOrder
+        .filter(layerName => layerName.toLowerCase() !== 'logo')
+        .map(layerName => {
         // Find current trait value for this layer
         const currentTrait = state.selectedNFT.attributes.find(attr =>
             attr.trait_type.toLowerCase() === layerName.toLowerCase()
