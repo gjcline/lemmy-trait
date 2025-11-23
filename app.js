@@ -278,12 +278,12 @@ function showModeSelection() {
 }
 
 // Select a mode (playground or swap)
-function selectMode(mode) {
+async function selectMode(mode) {
     console.log('Mode selected:', mode);
     state.mode = mode;
 
     if (mode === 'playground') {
-        enterPlaygroundMode();
+        await enterPlaygroundMode();
     } else if (mode === 'swap') {
         if (state.nfts.length < 2) {
             alert('You need at least 2 Trap Stars to use burn & swap mode.');
@@ -297,31 +297,57 @@ function selectMode(mode) {
 }
 
 // Enter playground mode with random traits
-function enterPlaygroundMode() {
-    const defaultNFT = {
-        id: 'playground',
-        name: 'Playground Trap Star',
-        image: null,
-        attributes: getRandomTraits()
-    };
+async function enterPlaygroundMode() {
+    // Generate random attributes
+    const attributes = getRandomTraits();
 
-    state.selectedNFT = defaultNFT;
-    hideElement(document.getElementById('modeSelection'));
-    showElement(document.getElementById('customizePage'));
-    renderCustomizationPage();
-    showStatus('Playground Mode - Experiment freely!', 'info');
+    // Generate initial image for the playground NFT
+    showLoading('Generating playground Trap Star...', '');
+
+    try {
+        const imageBlob = await generateImageFromTraits(attributes);
+        const imageUrl = URL.createObjectURL(imageBlob);
+
+        const defaultNFT = {
+            id: 'playground',
+            name: 'Playground Trap Star',
+            image: imageUrl,
+            attributes: attributes
+        };
+
+        state.selectedNFT = defaultNFT;
+
+        hideLoading();
+        hideElement(document.getElementById('modeSelection'));
+        showElement(document.getElementById('customizePage'));
+        renderCustomizationPage();
+        showStatus('Playground Mode - Experiment freely!', 'info');
+    } catch (error) {
+        hideLoading();
+        console.error('Failed to generate playground NFT:', error);
+        showStatus('Failed to generate playground NFT', 'error');
+    }
 }
 
 // Get random traits for playground
 function getRandomTraits() {
-    const traits = {};
-    for (const [category, items] of Object.entries(state.traitLayers)) {
-        if (items.length > 0) {
-            const randomIndex = Math.floor(Math.random() * items.length);
-            traits[category] = items[randomIndex];
+    const attributes = [];
+
+    // Use the layer order from config to ensure proper layering
+    for (const layerName of config.layerOrder) {
+        const traits = state.traitLayers[layerName];
+        if (traits && traits.length > 0) {
+            const randomIndex = Math.floor(Math.random() * traits.length);
+            const selectedTrait = traits[randomIndex];
+
+            attributes.push({
+                trait_type: layerName,
+                value: selectedTrait.name
+            });
         }
     }
-    return traits;
+
+    return attributes;
 }
 
 // Back to mode selection
