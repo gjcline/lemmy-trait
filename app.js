@@ -498,7 +498,7 @@ async function loadTraitLayersFromPublic() {
         console.log(`✅ Loaded ${loadedTraits} traits across ${categories.length} categories`);
 
         if (loadedTraits > 0) {
-            showStatus(`✅ Auto-loaded ${loadedTraits} trait images from ${categories.length} categories!`, 'info');
+            // Removed status message to keep UI clean
 
             const categoriesHTML = categories.map(cat =>
                 `<span class="inline-block bg-green-600 px-3 py-1 rounded-full text-sm mr-2 mb-2">${cat} (${layersByCategory[cat].length})</span>`
@@ -1180,6 +1180,7 @@ function renderCustomizationPage() {
 window.appState = state;
 window.appConfig = config;
 window.showModeSelection = showModeSelection;
+window.generateImageFromTraits = generateImageFromTraits;
 
 // OLD SWAP FUNCTION REMOVED - replaced with customization flow above
 
