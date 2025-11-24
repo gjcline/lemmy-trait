@@ -29,13 +29,12 @@ const state = {
 
 // Initialize app
 async function init() {
-    console.log('🚀 Trap Stars Trait Shop - Production Mode - INIT STARTING');
+    console.log('🚀 Trap Stars Trait Shop - Production Mode');
     console.log('Environment check:', {
         hasHeliusKey: !!import.meta.env.VITE_HELIUS_API_KEY,
         hasCollection: !!import.meta.env.VITE_COLLECTION_ADDRESS,
         mode: import.meta.env.MODE
     });
-    console.log('Document ready state:', document.readyState);
 
     // Initialize shader background
     const shaderContainer = document.getElementById('shader-background');
@@ -106,16 +105,7 @@ async function init() {
 
 // Set up all event listeners
 function setupEventListeners() {
-    console.log('🔧 Setting up event listeners...');
-
-    const connectBtn = document.getElementById('connectBtn');
-    if (connectBtn) {
-        connectBtn.addEventListener('click', connectWallet);
-        console.log('✅ Connect button listener attached');
-    } else {
-        console.error('❌ Connect button not found!');
-    }
-
+    document.getElementById('connectBtn').addEventListener('click', connectWallet);
     document.getElementById('disconnectBtn').addEventListener('click', disconnectWallet);
     document.getElementById('refreshBtn').addEventListener('click', () => fetchUserNFTs(state.walletAddress));
     document.getElementById('backToSelectionBtn').addEventListener('click', backToSelection);
@@ -308,19 +298,8 @@ async function selectMode(mode) {
 
 // Enter playground mode with random traits
 async function enterPlaygroundMode() {
-    // Check if traits are loaded
-    if (!state.traitLayers || Object.keys(state.traitLayers).length === 0) {
-        showStatus('Traits not loaded yet. Please wait...', 'error');
-        return;
-    }
-
     // Generate random attributes
     const attributes = getRandomTraits();
-
-    if (attributes.length === 0) {
-        showStatus('No traits available to generate playground NFT', 'error');
-        return;
-    }
 
     // Generate initial image for the playground NFT
     showLoading('Generating playground Trap Star...', '');
@@ -346,8 +325,7 @@ async function enterPlaygroundMode() {
     } catch (error) {
         hideLoading();
         console.error('Failed to generate playground NFT:', error);
-        showStatus('Failed to generate playground NFT: ' + error.message, 'error');
-        // Stay on mode selection so user can try again
+        showStatus('Failed to generate playground NFT', 'error');
     }
 }
 
@@ -520,7 +498,7 @@ async function loadTraitLayersFromPublic() {
         console.log(`✅ Loaded ${loadedTraits} traits across ${categories.length} categories`);
 
         if (loadedTraits > 0) {
-            // Removed status message to keep UI clean
+            showStatus(`✅ Auto-loaded ${loadedTraits} trait images from ${categories.length} categories!`, 'info');
 
             const categoriesHTML = categories.map(cat =>
                 `<span class="inline-block bg-green-600 px-3 py-1 rounded-full text-sm mr-2 mb-2">${cat} (${layersByCategory[cat].length})</span>`
@@ -1202,7 +1180,6 @@ function renderCustomizationPage() {
 window.appState = state;
 window.appConfig = config;
 window.showModeSelection = showModeSelection;
-window.generateImageFromTraits = generateImageFromTraits;
 
 // OLD SWAP FUNCTION REMOVED - replaced with customization flow above
 

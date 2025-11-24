@@ -176,34 +176,6 @@ function renderStep4Confirmation(state, contentDiv, nextBtn) {
 
     const html = `
         <div class="max-w-4xl mx-auto">
-            <!-- Preview Section -->
-            <div class="glass rounded-2xl p-6 mb-8">
-                <div class="flex justify-between items-center mb-4">
-                    <h4 class="text-lg font-semibold">Preview Result</h4>
-                    <button onclick="generateSwapPreview()" id="generatePreviewBtn" class="btn-primary px-6 py-2 rounded-lg text-sm">
-                        🔮 Generate Preview
-                    </button>
-                </div>
-                <div id="swapPreviewContainer" class="hidden">
-                    <div class="grid md:grid-cols-3 gap-4 items-center">
-                        <div>
-                            <p class="text-xs text-gray-400 mb-2 text-center">Current</p>
-                            <img src="${recipient.image}" alt="Current" class="w-full rounded-lg border border-white/10">
-                        </div>
-                        <div class="text-center text-2xl">→</div>
-                        <div>
-                            <p class="text-xs text-gray-400 mb-2 text-center">After Swap</p>
-                            <div id="previewImageContainer" class="relative">
-                                <div class="absolute inset-0 flex items-center justify-center">
-                                    <div class="spinner"></div>
-                                </div>
-                                <img id="swapPreviewImage" src="" alt="Preview" class="w-full rounded-lg border-2 border-green-500/50" style="display: none;">
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
             <div class="grid md:grid-cols-2 gap-6 mb-8">
                 <!-- Donor NFT -->
                 <div class="glass rounded-2xl p-6">
@@ -298,65 +270,5 @@ function selectRecipientNFT(idx) {
     window.renderSwapStep(window.appState, window.appConfig);
 }
 
-// Generate preview of the swap result
-async function generateSwapPreview() {
-    const state = window.appState;
-    const recipient = state.swap.recipientNFT;
-    const trait = state.swap.selectedTrait;
-
-    // Show the preview container
-    const container = document.getElementById('swapPreviewContainer');
-    const previewImg = document.getElementById('swapPreviewImage');
-    const generateBtn = document.getElementById('generatePreviewBtn');
-
-    container.classList.remove('hidden');
-    previewImg.style.display = 'none';
-
-    // Disable button during generation
-    generateBtn.disabled = true;
-    generateBtn.textContent = '⏳ Generating...';
-
-    try {
-        // Create new attributes with swapped trait
-        const newAttributes = [...recipient.attributes];
-
-        // Remove existing trait of same category
-        const existingIndex = newAttributes.findIndex(
-            attr => attr.trait_type.toLowerCase() === trait.category.toLowerCase()
-        );
-        if (existingIndex !== -1) {
-            newAttributes.splice(existingIndex, 1);
-        }
-
-        // Add new trait
-        newAttributes.push({
-            trait_type: trait.category,
-            value: trait.value
-        });
-
-        // Generate preview image
-        const imageBlob = await window.generateImageFromTraits(newAttributes);
-        const imageUrl = URL.createObjectURL(imageBlob);
-
-        // Display preview
-        previewImg.src = imageUrl;
-        previewImg.style.display = 'block';
-
-        // Re-enable button
-        generateBtn.disabled = false;
-        generateBtn.textContent = '🔄 Regenerate Preview';
-
-    } catch (error) {
-        console.error('Failed to generate preview:', error);
-        alert('Failed to generate preview: ' + error.message);
-
-        // Re-enable button
-        generateBtn.disabled = false;
-        generateBtn.textContent = '🔮 Generate Preview';
-        container.classList.add('hidden');
-    }
-}
-
 // Export to window
 window.renderSwapStep = renderSwapStep;
-window.generateSwapPreview = generateSwapPreview;
