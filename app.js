@@ -298,8 +298,19 @@ async function selectMode(mode) {
 
 // Enter playground mode with random traits
 async function enterPlaygroundMode() {
+    // Check if traits are loaded
+    if (!state.traitLayers || Object.keys(state.traitLayers).length === 0) {
+        showStatus('Traits not loaded yet. Please wait...', 'error');
+        return;
+    }
+
     // Generate random attributes
     const attributes = getRandomTraits();
+
+    if (attributes.length === 0) {
+        showStatus('No traits available to generate playground NFT', 'error');
+        return;
+    }
 
     // Generate initial image for the playground NFT
     showLoading('Generating playground Trap Star...', '');
@@ -325,7 +336,8 @@ async function enterPlaygroundMode() {
     } catch (error) {
         hideLoading();
         console.error('Failed to generate playground NFT:', error);
-        showStatus('Failed to generate playground NFT', 'error');
+        showStatus('Failed to generate playground NFT: ' + error.message, 'error');
+        // Stay on mode selection so user can try again
     }
 }
 
