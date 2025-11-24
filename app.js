@@ -732,38 +732,10 @@ async function previewCustomization() {
 
 // Generate image with custom traits
 async function generateCustomImage() {
-    console.log('🎨 Starting image generation...');
-    console.log('State:', {
-        hasTraitLayers: !!state.traitLayers,
-        layerCount: state.traitLayers ? Object.keys(state.traitLayers).length : 0,
-        hasConfig: !!config,
-        hasSelectedNFT: !!state.selectedNFT
-    });
-
-    if (!config) {
-        throw new Error('Configuration not loaded!');
-    }
-
-    if (!config.layerOrder || !Array.isArray(config.layerOrder)) {
-        throw new Error('Layer order not defined in config!');
-    }
-
-    if (!state.traitLayers || Object.keys(state.traitLayers).length === 0) {
-        throw new Error('Trait layers not loaded! Please wait for traits to load or refresh the page.');
-    }
-
     if (!state.selectedNFT || !state.selectedNFT.attributes) {
         throw new Error('No NFT selected or NFT has no attributes!');
     }
 
-    const canvas = document.createElement('canvas');
-    canvas.width = config.imageSize;
-    canvas.height = config.imageSize;
-    const ctx = canvas.getContext('2d');
-
-    console.log('Canvas created:', canvas.width, 'x', canvas.height);
-
-    // Build attributes from original + custom overrides
     const updatedAttributes = state.selectedNFT.attributes.map(attr => {
         const customValue = state.customTraits[attr.trait_type.toLowerCase()];
         if (customValue !== undefined) {
@@ -772,128 +744,13 @@ async function generateCustomImage() {
         return attr;
     });
 
-    // Add any new traits that weren't in original
     for (const [traitType, value] of Object.entries(state.customTraits)) {
         if (!updatedAttributes.find(a => a.trait_type.toLowerCase() === traitType.toLowerCase())) {
             updatedAttributes.push({ trait_type: traitType, value: value });
         }
     }
 
-    console.log('Updated attributes:', updatedAttributes);
-
-    let layersDrawn = 0;
-    const missingLayers = [];
-
-    // Draw layers in order
-    for (const layerName of config.layerOrder) {
-        const trait = updatedAttributes.find(attr =>
-            attr.trait_type.toLowerCase() === layerName.toLowerCase()
-        );
-
-        if (!trait || !trait.value || trait.value === '') {
-            if (config.optionalLayers.includes(layerName)) {
-                console.log(`Skipping optional layer: ${layerName}`);
-                continue;
-            }
-            console.log(`No trait value for required layer: ${layerName}`);
-            continue;
-        }
-
-        // Special handling for background layer - use Cloudinary URLs
-        if (layerName.toLowerCase() === 'background') {
-            const backgroundUrl = getBackgroundUrl(trait.value);
-
-            if (!backgroundUrl) {
-                console.warn(`Background URL not found for: ${trait.value}`);
-                if (config.optionalLayers.includes(layerName)) {
-                    continue;
-                }
-                missingLayers.push(`${layerName}/${trait.value} (no URL mapping)`);
-                continue;
-            }
-
-            console.log(`Drawing background: ${trait.value} from ${backgroundUrl}`);
-
-            try {
-                await new Promise((resolve, reject) => {
-                    const img = new Image();
-                    img.crossOrigin = 'anonymous'; // Enable CORS for Cloudinary
-                    img.onload = () => {
-                        ctx.drawImage(img, 0, 0, config.imageSize, config.imageSize);
-                        layersDrawn++;
-                        resolve();
-                    };
-                    img.onerror = (e) => {
-                        reject(new Error(`Failed to load background: ${backgroundUrl}`));
-                    };
-                    img.src = backgroundUrl;
-                });
-            } catch (err) {
-                throw new Error(`Error loading background ${trait.value}: ${err.message}`);
-            }
-            continue;
-        }
-
-        // Regular layer handling for non-background layers
-        const layerFiles = state.traitLayers[layerName];
-        if (!layerFiles || layerFiles.length === 0) {
-            missingLayers.push(`${layerName} (no files loaded)`);
-            console.warn(`No files loaded for layer: ${layerName}`);
-            continue;
-        }
-
-        let traitFile = layerFiles.find(f => f.name === trait.value);
-        if (!traitFile) {
-            traitFile = layerFiles.find(f => f.name.toLowerCase() === trait.value.toLowerCase());
-        }
-
-        if (!traitFile) {
-            const available = layerFiles.map(f => f.name).slice(0, 5).join(', ');
-            missingLayers.push(`${layerName}/${trait.value} (available: ${available}...)`);
-            console.warn(`Trait not found: ${layerName}/${trait.value}`);
-            continue;
-        }
-
-        console.log(`Drawing layer: ${layerName} - ${trait.value} from ${traitFile.url}`);
-
-        try {
-            await new Promise((resolve, reject) => {
-                const img = new Image();
-                img.onload = () => {
-                    ctx.drawImage(img, 0, 0, config.imageSize, config.imageSize);
-                    layersDrawn++;
-                    resolve();
-                };
-                img.onerror = (e) => {
-                    reject(new Error(`Failed to load image: ${traitFile.url}`));
-                };
-                img.src = traitFile.url;
-            });
-        } catch (err) {
-            throw new Error(`Error loading ${layerName}/${trait.value}: ${err.message}`);
-        }
-    }
-
-    console.log(`✅ Drew ${layersDrawn} layers`);
-
-    if (layersDrawn === 0) {
-        throw new Error('No layers were drawn! This may indicate a trait matching issue.');
-    }
-
-    if (missingLayers.length > 0) {
-        console.warn('Missing layers:', missingLayers);
-    }
-
-    return new Promise((resolve, reject) => {
-        canvas.toBlob((blob) => {
-            if (!blob) {
-                reject(new Error('Failed to generate image blob from canvas'));
-            } else {
-                console.log('✅ Image blob generated:', blob.size, 'bytes');
-                resolve(blob);
-            }
-        }, 'image/png');
-    });
+    return generateImageFromTraits(updatedAttributes);
 }
 
 // Confirm and execute customization
@@ -1176,10 +1033,147 @@ function renderCustomizationPage() {
     openCustomizePage();
 }
 
+// Generate image from traits (used for both customization and swap preview)
+async function generateImageFromTraits(attributes) {
+    console.log('🎨 Starting image generation from traits...');
+
+    if (!config) {
+        throw new Error('Configuration not loaded!');
+    }
+
+    if (!config.layerOrder || !Array.isArray(config.layerOrder)) {
+        throw new Error('Layer order not defined in config!');
+    }
+
+    if (!state.traitLayers || Object.keys(state.traitLayers).length === 0) {
+        throw new Error('Trait layers not loaded! Please wait for traits to load or refresh the page.');
+    }
+
+    const canvas = document.createElement('canvas');
+    canvas.width = config.imageSize;
+    canvas.height = config.imageSize;
+    const ctx = canvas.getContext('2d');
+
+    console.log('Canvas created:', canvas.width, 'x', canvas.height);
+    console.log('Generating image with attributes:', attributes);
+
+    let layersDrawn = 0;
+    const missingLayers = [];
+
+    for (const layerName of config.layerOrder) {
+        const trait = attributes.find(attr =>
+            attr.trait_type.toLowerCase() === layerName.toLowerCase()
+        );
+
+        if (!trait || !trait.value || trait.value === '') {
+            if (config.optionalLayers.includes(layerName)) {
+                console.log(`Skipping optional layer: ${layerName}`);
+                continue;
+            }
+            console.log(`No trait value for required layer: ${layerName}`);
+            continue;
+        }
+
+        if (layerName.toLowerCase() === 'background') {
+            const backgroundUrl = getBackgroundUrl(trait.value);
+
+            if (!backgroundUrl) {
+                console.warn(`Background URL not found for: ${trait.value}`);
+                if (config.optionalLayers.includes(layerName)) {
+                    continue;
+                }
+                missingLayers.push(`${layerName}/${trait.value} (no URL mapping)`);
+                continue;
+            }
+
+            console.log(`Drawing background: ${trait.value} from ${backgroundUrl}`);
+
+            try {
+                await new Promise((resolve, reject) => {
+                    const img = new Image();
+                    img.crossOrigin = 'anonymous';
+                    img.onload = () => {
+                        ctx.drawImage(img, 0, 0, config.imageSize, config.imageSize);
+                        layersDrawn++;
+                        resolve();
+                    };
+                    img.onerror = (e) => {
+                        reject(new Error(`Failed to load background: ${backgroundUrl}`));
+                    };
+                    img.src = backgroundUrl;
+                });
+            } catch (err) {
+                throw new Error(`Error loading background ${trait.value}: ${err.message}`);
+            }
+            continue;
+        }
+
+        const layerFiles = state.traitLayers[layerName];
+        if (!layerFiles || layerFiles.length === 0) {
+            missingLayers.push(`${layerName} (no files loaded)`);
+            console.warn(`No files loaded for layer: ${layerName}`);
+            continue;
+        }
+
+        let traitFile = layerFiles.find(f => f.name === trait.value);
+        if (!traitFile) {
+            traitFile = layerFiles.find(f => f.name.toLowerCase() === trait.value.toLowerCase());
+        }
+
+        if (!traitFile) {
+            const available = layerFiles.map(f => f.name).slice(0, 5).join(', ');
+            missingLayers.push(`${layerName}/${trait.value} (available: ${available}...)`);
+            console.warn(`Trait not found: ${layerName}/${trait.value}`);
+            continue;
+        }
+
+        console.log(`Drawing layer: ${layerName} - ${trait.value} from ${traitFile.url}`);
+
+        try {
+            await new Promise((resolve, reject) => {
+                const img = new Image();
+                img.onload = () => {
+                    ctx.drawImage(img, 0, 0, config.imageSize, config.imageSize);
+                    layersDrawn++;
+                    resolve();
+                };
+                img.onerror = (e) => {
+                    reject(new Error(`Failed to load image: ${traitFile.url}`));
+                };
+                img.src = traitFile.url;
+            });
+        } catch (err) {
+            throw new Error(`Error loading ${layerName}/${trait.value}: ${err.message}`);
+        }
+    }
+
+    console.log(`✅ Drew ${layersDrawn} layers`);
+
+    if (layersDrawn === 0) {
+        throw new Error('No layers were drawn! This may indicate a trait matching issue.');
+    }
+
+    if (missingLayers.length > 0) {
+        console.warn('Missing layers:', missingLayers);
+    }
+
+    return new Promise((resolve, reject) => {
+        canvas.toBlob((blob) => {
+            if (!blob) {
+                reject(new Error('Failed to generate image blob from canvas'));
+            } else {
+                console.log('✅ Image blob generated:', blob.size, 'bytes');
+                resolve(blob);
+            }
+        }, 'image/png');
+    });
+}
+
 // Expose state and config globally for swap-ui
 window.appState = state;
 window.appConfig = config;
 window.showModeSelection = showModeSelection;
+window.generateImageFromTraits = generateImageFromTraits;
 
 // OLD SWAP FUNCTION REMOVED - replaced with customization flow above
 

@@ -175,8 +175,8 @@ function renderStep4Confirmation(state, contentDiv, nextBtn) {
     const trait = state.swap.selectedTrait;
 
     const html = `
-        <div class="max-w-4xl mx-auto">
-            <div class="grid md:grid-cols-2 gap-6 mb-8">
+        <div class="max-w-6xl mx-auto">
+            <div class="grid md:grid-cols-3 gap-6 mb-8">
                 <!-- Donor NFT -->
                 <div class="glass rounded-2xl p-6">
                     <div class="bg-red-500/10 border border-red-500/30 rounded-lg p-3 mb-4">
@@ -185,6 +185,28 @@ function renderStep4Confirmation(state, contentDiv, nextBtn) {
                     <img src="${donor.image}" alt="${donor.name}" class="w-full rounded-xl mb-4">
                     <h3 class="text-xl font-semibold mb-2">${donor.name}</h3>
                     <p class="text-gray-400 text-sm mb-3">Extracting: ${trait.category} - ${trait.value}</p>
+                </div>
+
+                <!-- Preview NFT -->
+                <div class="glass rounded-2xl p-6" id="previewContainer">
+                    <div class="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3 mb-4">
+                        <p class="text-blue-300 text-sm font-semibold">👁️ Preview</p>
+                    </div>
+                    <div id="previewImageContainer" class="hidden">
+                        <img id="swapPreviewImage" src="" alt="Preview" class="w-full rounded-xl mb-4">
+                        <p class="text-sm text-gray-400 text-center">New look with swapped trait</p>
+                    </div>
+                    <div id="previewPlaceholder" class="flex flex-col items-center justify-center py-8">
+                        <div class="text-4xl mb-4 opacity-30">🖼️</div>
+                        <button onclick="generateSwapPreview()" class="btn-primary px-6 py-3 rounded-xl text-sm">
+                            Generate Preview
+                        </button>
+                        <p class="text-xs text-gray-500 mt-3 text-center">See how the NFT will look after the swap</p>
+                    </div>
+                    <div id="previewLoading" class="hidden flex flex-col items-center justify-center py-8">
+                        <div class="spinner mb-3"></div>
+                        <p class="text-sm text-gray-400">Generating preview...</p>
+                    </div>
                 </div>
 
                 <!-- Recipient NFT -->
@@ -254,6 +276,7 @@ function renderStep4Confirmation(state, contentDiv, nextBtn) {
 window.selectDonorNFT = selectDonorNFT;
 window.selectTrait = selectTrait;
 window.selectRecipientNFT = selectRecipientNFT;
+window.generateSwapPreview = generateSwapPreview;
 
 function selectDonorNFT(idx) {
     window.appState.swap.donorNFT = window.appState.nfts[idx];
@@ -268,6 +291,60 @@ function selectTrait(category, value) {
 function selectRecipientNFT(idx) {
     window.appState.swap.recipientNFT = window.appState.nfts[idx];
     window.renderSwapStep(window.appState, window.appConfig);
+}
+
+async function generateSwapPreview() {
+    const state = window.appState;
+    const config = window.appConfig;
+
+    const placeholderEl = document.getElementById('previewPlaceholder');
+    const loadingEl = document.getElementById('previewLoading');
+    const imageContainerEl = document.getElementById('previewImageContainer');
+    const previewImageEl = document.getElementById('swapPreviewImage');
+
+    if (!state.swap.recipientNFT || !state.swap.selectedTrait) {
+        alert('Missing required information for preview generation');
+        return;
+    }
+
+    try {
+        if (placeholderEl) placeholderEl.classList.add('hidden');
+        if (loadingEl) loadingEl.classList.remove('hidden');
+
+        const newAttributes = [...state.swap.recipientNFT.attributes];
+
+        const existingIndex = newAttributes.findIndex(
+            attr => attr.trait_type.toLowerCase() === state.swap.selectedTrait.category.toLowerCase()
+        );
+        if (existingIndex !== -1) {
+            newAttributes.splice(existingIndex, 1);
+        }
+
+        newAttributes.push({
+            trait_type: state.swap.selectedTrait.category,
+            value: state.swap.selectedTrait.value
+        });
+
+        const imageBlob = await window.generateImageFromTraits(newAttributes);
+
+        if (state.swap.previewUrl) {
+            URL.revokeObjectURL(state.swap.previewUrl);
+        }
+
+        const previewUrl = URL.createObjectURL(imageBlob);
+        state.swap.previewUrl = previewUrl;
+
+        if (previewImageEl) previewImageEl.src = previewUrl;
+        if (loadingEl) loadingEl.classList.add('hidden');
+        if (imageContainerEl) imageContainerEl.classList.remove('hidden');
+
+    } catch (error) {
+        console.error('Preview generation failed:', error);
+        alert(`Failed to generate preview: ${error.message}`);
+
+        if (loadingEl) loadingEl.classList.add('hidden');
+        if (placeholderEl) placeholderEl.classList.remove('hidden');
+    }
 }
 
 // Export to window
