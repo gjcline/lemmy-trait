@@ -29,12 +29,13 @@ const state = {
 
 // Initialize app
 async function init() {
-    console.log('🚀 Trap Stars Trait Shop - Production Mode');
+    console.log('🚀 Trap Stars Trait Shop - Production Mode - INIT STARTING');
     console.log('Environment check:', {
         hasHeliusKey: !!import.meta.env.VITE_HELIUS_API_KEY,
         hasCollection: !!import.meta.env.VITE_COLLECTION_ADDRESS,
         mode: import.meta.env.MODE
     });
+    console.log('Document ready state:', document.readyState);
 
     // Initialize shader background
     const shaderContainer = document.getElementById('shader-background');
@@ -105,7 +106,16 @@ async function init() {
 
 // Set up all event listeners
 function setupEventListeners() {
-    document.getElementById('connectBtn').addEventListener('click', connectWallet);
+    console.log('🔧 Setting up event listeners...');
+
+    const connectBtn = document.getElementById('connectBtn');
+    if (connectBtn) {
+        connectBtn.addEventListener('click', connectWallet);
+        console.log('✅ Connect button listener attached');
+    } else {
+        console.error('❌ Connect button not found!');
+    }
+
     document.getElementById('disconnectBtn').addEventListener('click', disconnectWallet);
     document.getElementById('refreshBtn').addEventListener('click', () => fetchUserNFTs(state.walletAddress));
     document.getElementById('backToSelectionBtn').addEventListener('click', backToSelection);
