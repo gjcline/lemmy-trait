@@ -4,20 +4,39 @@
 import { DotShaderBackground } from './shader-background.js';
 import { getBackgroundUrl } from './background-urls.js';
 
-// Cloudinary configuration for trait images
-const CLOUDINARY_CLOUD_NAME = 'dod3kfpon';
-const CLOUDINARY_BASE_FOLDER = 'Trap%20Stars';
+// Cloudinary URL mapping (loaded from public/cloudinary-url-map.json)
+let cloudinaryUrlMap = null;
 
-// Helper function to construct Cloudinary URLs with proper encoding
+// Helper function to get trait image URL from Cloudinary mapping
 function getTraitImageUrl(category, traitName) {
-    const encodedCategory = encodeURIComponent(category);
-    const encodedName = encodeURIComponent(traitName);
-    return `https://res.cloudinary.com/${CLOUDINARY_CLOUD_NAME}/image/upload/v1/${CLOUDINARY_BASE_FOLDER}/${encodedCategory}/${encodedName}.png`;
+    if (!cloudinaryUrlMap) {
+        console.warn('Cloudinary URL map not loaded yet');
+        return null;
+    }
+    return cloudinaryUrlMap[traitName] || null;
 }
 
 // Load configuration
 let config = null;
 let shaderBackground = null;
+
+// Load Cloudinary URL mapping
+async function loadCloudinaryUrlMap() {
+    try {
+        const response = await fetch('/cloudinary-url-map.json');
+        if (response.ok) {
+            cloudinaryUrlMap = await response.json();
+            console.log(`✅ Loaded ${Object.keys(cloudinaryUrlMap).length} Cloudinary URLs`);
+            return true;
+        } else {
+            console.error('Failed to load Cloudinary URL map');
+            return false;
+        }
+    } catch (error) {
+        console.error('Error loading Cloudinary URL map:', error);
+        return false;
+    }
+}
 
 // State management
 const state = {
@@ -99,6 +118,9 @@ async function init() {
     }
 
     hideElement(document.getElementById('configNotice'));
+
+    // Load Cloudinary URL mapping
+    await loadCloudinaryUrlMap();
 
     // Set up event listeners
     setupEventListeners();
