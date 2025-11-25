@@ -858,6 +858,7 @@ async function regenerateImage() {
         try {
             await new Promise((resolve, reject) => {
                 const img = new Image();
+                img.crossOrigin = 'anonymous';
                 img.onload = () => {
                     ctx.drawImage(img, 0, 0, config.imageSize, config.imageSize);
                     resolve();
@@ -1146,6 +1147,7 @@ async function generateImageFromTraits(attributes) {
         try {
             await new Promise((resolve, reject) => {
                 const img = new Image();
+                img.crossOrigin = 'anonymous';
                 img.onload = () => {
                     ctx.drawImage(img, 0, 0, config.imageSize, config.imageSize);
                     layersDrawn++;
