@@ -4,39 +4,20 @@
 import { DotShaderBackground } from './shader-background.js';
 import { getBackgroundUrl } from './background-urls.js';
 
-// Cloudinary URL mapping (loaded from public/cloudinary-url-map.json)
-let cloudinaryUrlMap = null;
+// Netlify assets base URL
+const NETLIFY_ASSETS_BASE = 'https://trapstars-assets.netlify.app';
 
-// Helper function to get trait image URL from Cloudinary mapping
+// Helper function to construct Netlify asset URLs
 function getTraitImageUrl(category, traitName) {
-    if (!cloudinaryUrlMap) {
-        console.warn('Cloudinary URL map not loaded yet');
-        return null;
-    }
-    return cloudinaryUrlMap[traitName] || null;
+    const encodedCategory = encodeURIComponent(category.toLowerCase());
+    const encodedName = encodeURIComponent(traitName.toLowerCase());
+    return `${NETLIFY_ASSETS_BASE}/${encodedCategory}/${encodedName}.png`;
 }
 
 // Load configuration
 let config = null;
 let shaderBackground = null;
 
-// Load Cloudinary URL mapping
-async function loadCloudinaryUrlMap() {
-    try {
-        const response = await fetch('/cloudinary-url-map.json');
-        if (response.ok) {
-            cloudinaryUrlMap = await response.json();
-            console.log(`✅ Loaded ${Object.keys(cloudinaryUrlMap).length} Cloudinary URLs`);
-            return true;
-        } else {
-            console.error('Failed to load Cloudinary URL map');
-            return false;
-        }
-    } catch (error) {
-        console.error('Error loading Cloudinary URL map:', error);
-        return false;
-    }
-}
 
 // State management
 const state = {
@@ -118,9 +99,6 @@ async function init() {
     }
 
     hideElement(document.getElementById('configNotice'));
-
-    // Load Cloudinary URL mapping
-    await loadCloudinaryUrlMap();
 
     // Set up event listeners
     setupEventListeners();
