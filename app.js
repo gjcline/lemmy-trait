@@ -4,6 +4,15 @@
 import { DotShaderBackground } from './shader-background.js';
 import { getBackgroundUrl } from './background-urls.js';
 
+// GitHub raw URL base for trait images
+const GITHUB_RAW_BASE = 'https://raw.githubusercontent.com/gjcline/lemmy-trait/refs/heads/main/public';
+
+// Helper function to construct GitHub raw URLs with proper encoding
+function getTraitImageUrl(category, traitName) {
+    const encodedName = encodeURIComponent(traitName);
+    return `${GITHUB_RAW_BASE}/${category}/${encodedName}.png`;
+}
+
 // Load configuration
 let config = null;
 let shaderBackground = null;
@@ -480,7 +489,10 @@ async function loadTraitLayersFromPublic() {
             layersByCategory[category] = [];
 
             for (const traitName of traitNames) {
-                const imagePath = `/${category}/${traitName}.png`;
+                // Use GitHub raw URLs for all trait images (backgrounds use Cloudinary via getBackgroundUrl)
+                const imagePath = category.toLowerCase() === 'background'
+                    ? `/${category}/${traitName}.png`
+                    : getTraitImageUrl(category, traitName);
 
                 layersByCategory[category].push({
                     name: traitName,
