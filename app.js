@@ -4,13 +4,15 @@
 import { DotShaderBackground } from './shader-background.js';
 import { getBackgroundUrl } from './background-urls.js';
 
-// GitHub raw URL base for trait images
-const GITHUB_RAW_BASE = 'https://raw.githubusercontent.com/gjcline/lemmy-trait/refs/heads/main/public';
+// Cloudinary configuration for trait images
+const CLOUDINARY_CLOUD_NAME = 'dod3kfpon';
+const CLOUDINARY_BASE_FOLDER = 'Trap%20Stars';
 
-// Helper function to construct GitHub raw URLs with proper encoding
+// Helper function to construct Cloudinary URLs with proper encoding
 function getTraitImageUrl(category, traitName) {
+    const encodedCategory = encodeURIComponent(category);
     const encodedName = encodeURIComponent(traitName);
-    return `${GITHUB_RAW_BASE}/${category}/${encodedName}.png`;
+    return `https://res.cloudinary.com/${CLOUDINARY_CLOUD_NAME}/image/upload/v1/${CLOUDINARY_BASE_FOLDER}/${encodedCategory}/${encodedName}.png`;
 }
 
 // Load configuration
