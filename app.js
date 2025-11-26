@@ -874,7 +874,7 @@ async function regenerateImage() {
     // Report missing files with helpful error messages
     if (missingFiles.length > 0 || missingLayers.length > 0) {
         let errorMsg = '❌ Missing trait files for image generation:\n\n';
-        
+
         if (missingLayers.length > 0) {
             errorMsg += 'Missing layer folders:\n';
             missingLayers.forEach(layer => {
@@ -882,7 +882,7 @@ async function regenerateImage() {
             });
             errorMsg += '\n';
         }
-        
+
         if (missingFiles.length > 0) {
             errorMsg += 'Missing trait files (file name must match trait value exactly):\n';
             missingFiles.forEach(({ layer, needed, available, totalAvailable }) => {
@@ -893,10 +893,32 @@ async function regenerateImage() {
             errorMsg += '\n💡 Tip: Make sure your trait file names match the trait values exactly (case-sensitive).\n';
             errorMsg += '   For example, if trait value is "Red Shirt", the file should be named "Red Shirt.png"';
         }
-        
+
         throw new Error(errorMsg);
     }
-    
+
+    const logoUrl = import.meta.env.VITE_LOGO_URL || 'https://trapstars-assets.netlify.app/logo/logo.png';
+    console.log(`Drawing logo overlay from: ${logoUrl}`);
+
+    try {
+        await new Promise((resolve, reject) => {
+            const img = new Image();
+            img.crossOrigin = 'anonymous';
+            img.onload = () => {
+                ctx.drawImage(img, 0, 0, config.imageSize, config.imageSize);
+                console.log('✅ Logo overlay drawn');
+                resolve();
+            };
+            img.onerror = (e) => {
+                console.warn('Logo failed to load, continuing without it');
+                resolve();
+            };
+            img.src = logoUrl;
+        });
+    } catch (err) {
+        console.warn('Error loading logo, continuing without it:', err.message);
+    }
+
     return new Promise((resolve, reject) => {
         canvas.toBlob((blob) => {
             if (!blob) {
@@ -1171,6 +1193,28 @@ async function generateImageFromTraits(attributes) {
 
     if (missingLayers.length > 0) {
         console.warn('Missing layers:', missingLayers);
+    }
+
+    const logoUrl = import.meta.env.VITE_LOGO_URL || 'https://trapstars-assets.netlify.app/logo/logo.png';
+    console.log(`Drawing logo overlay from: ${logoUrl}`);
+
+    try {
+        await new Promise((resolve, reject) => {
+            const img = new Image();
+            img.crossOrigin = 'anonymous';
+            img.onload = () => {
+                ctx.drawImage(img, 0, 0, config.imageSize, config.imageSize);
+                console.log('✅ Logo overlay drawn');
+                resolve();
+            };
+            img.onerror = (e) => {
+                console.warn('Logo failed to load, continuing without it');
+                resolve();
+            };
+            img.src = logoUrl;
+        });
+    } catch (err) {
+        console.warn('Error loading logo, continuing without it:', err.message);
     }
 
     return new Promise((resolve, reject) => {
