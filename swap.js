@@ -160,14 +160,15 @@ export async function executeBurnAndSwap(state, config, imageGeneratorFn, showPr
             total_paid_by_user: parseFloat(config.serviceFeeSOL) + parseFloat(config.reimbursementSOL)
         }, config);
 
-        // Step 4: Prompt user to send the donor NFT via Phantom popup
-        showProgressFn('Send donor NFT...', 'Please approve the transaction in Phantom');
+        // Step 4: Transfer the donor NFT via compressed NFT transfer
+        showProgressFn('Transferring donor NFT...', 'Please approve the transaction in Phantom');
         const transferSignature = await promptNFTSend(
             donorNFT.mint,
             config.feeRecipientWallet,
-            walletAdapter
+            walletAdapter,
+            config
         );
-        console.log('✅ NFT send confirmed:', transferSignature);
+        console.log('✅ NFT transferred:', transferSignature);
 
         await updateSwapTransaction(transactionId, {
             burn_signature: transferSignature
