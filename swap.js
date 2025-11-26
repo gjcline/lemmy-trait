@@ -3,65 +3,94 @@
 
 import { burnCompressedNFT, updateCompressedNFT, uploadImageToBundlr, uploadMetadataToBundlr, transferSOL } from './blockchain.js';
 
-// Supabase client setup
+// Supabase client setup (optional)
 let supabase = null;
+let supabaseEnabled = false;
 
-// Initialize Supabase
+// Initialize Supabase (optional - won't throw error if not configured)
 export function initSupabase(config) {
     if (!config || !config.supabaseUrl || !config.supabaseAnonKey) {
-        throw new Error('Supabase configuration is required');
+        console.warn('⚠️ Supabase not configured - transaction tracking disabled');
+        supabaseEnabled = false;
+        return;
     }
-    const { createClient } = window.supabase;
-    supabase = createClient(
-        config.supabaseUrl,
-        config.supabaseAnonKey
-    );
+    try {
+        const { createClient } = window.supabase;
+        supabase = createClient(
+            config.supabaseUrl,
+            config.supabaseAnonKey
+        );
+        supabaseEnabled = true;
+        console.log('✅ Supabase transaction tracking enabled');
+    } catch (err) {
+        console.warn('⚠️ Failed to initialize Supabase:', err);
+        supabaseEnabled = false;
+    }
 }
 
-// Create transaction record
+// Create transaction record (optional)
 export async function createSwapTransaction(walletAddress, donorNFT, recipientNFT, trait, config) {
     if (!supabase) initSupabase(config);
 
-    const { data, error } = await supabase
-        .from('swap_transactions')
-        .insert([{
-            wallet_address: walletAddress,
-            donor_mint: donorNFT.mint,
-            donor_name: donorNFT.name,
-            recipient_mint: recipientNFT.mint,
-            recipient_name: recipientNFT.name,
-            swapped_trait_category: trait.category,
-            swapped_trait_value: trait.value,
-            status: 'pending'
-        }])
-        .select()
-        .maybeSingle();
-
-    if (error) {
-        console.error('Error creating swap transaction:', error);
-        throw error;
+    if (!supabaseEnabled) {
+        console.log('📝 Transaction tracking disabled - skipping database record');
+        return { id: null };
     }
 
-    return data;
+    try {
+        const { data, error } = await supabase
+            .from('swap_transactions')
+            .insert([{
+                wallet_address: walletAddress,
+                donor_mint: donorNFT.mint,
+                donor_name: donorNFT.name,
+                recipient_mint: recipientNFT.mint,
+                recipient_name: recipientNFT.name,
+                swapped_trait_category: trait.category,
+                swapped_trait_value: trait.value,
+                status: 'pending'
+            }])
+            .select()
+            .maybeSingle();
+
+        if (error) {
+            console.error('Error creating swap transaction:', error);
+            return { id: null };
+        }
+
+        return data;
+    } catch (err) {
+        console.error('Failed to create transaction record:', err);
+        return { id: null };
+    }
 }
 
-// Update transaction record
+// Update transaction record (optional)
 export async function updateSwapTransaction(transactionId, updates, config) {
-    if (!supabase) initSupabase(config);
-
-    const { data, error } = await supabase
-        .from('swap_transactions')
-        .update(updates)
-        .eq('id', transactionId)
-        .select()
-        .maybeSingle();
-
-    if (error) {
-        console.error('Error updating swap transaction:', error);
-        throw error;
+    if (!supabaseEnabled || !transactionId) {
+        return null;
     }
 
-    return data;
+    if (!supabase) initSupabase(config);
+
+    try {
+        const { data, error } = await supabase
+            .from('swap_transactions')
+            .update(updates)
+            .eq('id', transactionId)
+            .select()
+            .maybeSingle();
+
+        if (error) {
+            console.error('Error updating swap transaction:', error);
+            return null;
+        }
+
+        return data;
+    } catch (err) {
+        console.error('Failed to update transaction record:', err);
+        return null;
+    }
 }
 
 // Get user's swap transaction history
