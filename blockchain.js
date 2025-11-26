@@ -10,7 +10,7 @@ import {
     updateMetadata
 } from '@metaplex-foundation/mpl-bubblegum';
 import { fromWeb3JsKeypair, fromWeb3JsPublicKey } from '@metaplex-foundation/umi-web3js-adapters';
-import Bundlr from '@bundlr-network/client';
+import Bundlr from '@bundlr-network/client/build/web/bundle';
 
 /**
  * Transfer SOL from user's wallet to a recipient

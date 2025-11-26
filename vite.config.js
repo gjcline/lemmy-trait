@@ -12,7 +12,10 @@ export default {
       http: 'stream-http',
       url: 'url',
       assert: 'assert',
-      events: 'events'
+      events: 'events',
+      path: 'path-browserify',
+      zlib: 'browserify-zlib',
+      vm: 'vm-browserify'
     }
   },
   define: {

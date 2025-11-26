@@ -217,7 +217,10 @@ async function connectWallet() {
         
         const resp = await window.solana.connect();
         state.walletAddress = resp.publicKey.toString();
-        
+
+        // Store wallet adapter for swap transactions
+        window.walletAdapter = window.solana;
+
         console.log('✅ Wallet connected:', state.walletAddress);
         
         document.getElementById('walletAddress').textContent = 
@@ -241,6 +244,7 @@ async function connectWallet() {
 async function disconnectWallet() {
     await window.solana.disconnect();
     state.walletAddress = null;
+    window.walletAdapter = null;
     state.nfts = [];
     state.mode = null;
     state.swap = {
@@ -972,6 +976,11 @@ async function handleSwapNext() {
 // Execute the swap transaction
 async function executeSwap() {
     try {
+        // Validate wallet is still connected
+        if (!window.walletAdapter) {
+            throw new Error('Wallet not connected. Please reconnect your wallet and try again.');
+        }
+
         const { executeBurnAndSwap } = await import('./swap.js');
 
         // Show progress during execution
