@@ -10,6 +10,7 @@ import {
     updateMetadata
 } from '@metaplex-foundation/mpl-bubblegum';
 import { fromWeb3JsKeypair, fromWeb3JsPublicKey } from '@metaplex-foundation/umi-web3js-adapters';
+import { walletAdapterIdentity } from '@metaplex-foundation/umi-signer-wallet-adapters';
 import Bundlr from '@bundlr-network/client/build/web/bundle';
 
 /**
@@ -233,52 +234,50 @@ export async function getAsset(assetId, rpcEndpoint) {
 }
 
 /**
- * Burn compressed NFT
+ * Burn compressed NFT using user's wallet
+ * @param {string} assetId - The NFT asset ID to burn
+ * @param {Object} walletAdapter - The user's Phantom wallet adapter
+ * @param {Object} config - Configuration object
  */
-export async function burnCompressedNFT(assetId, config) {
+export async function burnCompressedNFT(assetId, walletAdapter, config) {
     console.log('🔥 Burning compressed NFT:', assetId);
-    
+    console.log('🔑 Using wallet:', walletAdapter.publicKey.toString());
+
     try {
         // Get asset and proof
         const [asset, proof] = await Promise.all([
             getAsset(assetId, config.rpcEndpoint),
             getAssetProof(assetId, config.rpcEndpoint)
         ]);
-        
+
         console.log('Asset:', asset);
         console.log('Proof:', proof);
-        
+
         // Validate asset is compressed
         if (!asset.compression || !asset.compression.compressed) {
             throw new Error('Asset is not a compressed NFT. Only compressed NFTs are supported.');
         }
-        
-        // Validate ownership - owner or update authority can burn
-        const canBurn = asset.ownership.owner === config.updateAuthority || 
-                       asset.authorities?.some(a => a.address === config.updateAuthority && a.scopes?.includes('full'));
-        if (!canBurn) {
-            console.warn('⚠️ Warning: Update authority may not match owner. Proceeding with burn attempt...');
+
+        // Validate ownership - user's wallet must be the owner
+        if (asset.ownership.owner !== walletAdapter.publicKey.toString()) {
+            throw new Error(`You do not own this NFT. Owner: ${asset.ownership.owner}`);
         }
-        
-        // Initialize UMI
+
+        console.log('✅ Ownership verified');
+
+        // Initialize UMI with user's wallet adapter
         const umi = createUmi(config.rpcEndpoint)
-            .use(mplBubblegum());
-        
-        // Convert private key to Keypair and set identity
-        const privateKeyArray = new Uint8Array(config.updateAuthorityPrivateKey);
-        const web3Keypair = Keypair.fromSecretKey(privateKeyArray);
-        const umiKeypair = fromWeb3JsKeypair(web3Keypair);
-        
-        // Set identity using keypair directly
-        umi.identity = umiKeypair;
+            .use(mplBubblegum())
+            .use(walletAdapterIdentity(walletAdapter));
         
         // Prepare burn instruction
         const treeAddress = fromWeb3JsPublicKey(new PublicKey(asset.compression.tree));
-        const leafOwner = fromWeb3JsPublicKey(new PublicKey(asset.ownership.owner));
-        const leafDelegate = asset.ownership.delegate 
+        const leafOwner = fromWeb3JsPublicKey(walletAdapter.publicKey);
+        const leafDelegate = asset.ownership.delegate
             ? fromWeb3JsPublicKey(new PublicKey(asset.ownership.delegate))
             : leafOwner;
-        
+
+        console.log('🔨 Building burn instruction...');
         const burnIx = burn(umi, {
             leafOwner,
             leafDelegate,
@@ -294,9 +293,9 @@ export async function burnCompressedNFT(assetId, config) {
                 isSigner: false
             }))
         });
-        
-        // Send transaction
-        console.log('📤 Sending burn transaction...');
+
+        // Send transaction (user will be prompted to approve in Phantom)
+        console.log('📤 Sending burn transaction (please approve in wallet)...');
         const signature = await burnIx.sendAndConfirm(umi);
         
         console.log('✅ NFT burned! Signature:', signature);

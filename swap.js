@@ -160,9 +160,9 @@ export async function executeBurnAndSwap(state, config, imageGeneratorFn, showPr
             total_paid_by_user: parseFloat(config.serviceFeeSOL) + parseFloat(config.reimbursementSOL)
         }, config);
 
-        // Step 4: Burn the donor NFT
-        showProgressFn('Burning donor NFT...', 'This will permanently destroy the NFT');
-        const burnSignature = await burnCompressedNFT(donorNFT.mint, config);
+        // Step 4: Burn the donor NFT (user must approve this transaction)
+        showProgressFn('Burning donor NFT...', 'Please approve the burn transaction in your wallet');
+        const burnSignature = await burnCompressedNFT(donorNFT.mint, walletAdapter, config);
         console.log('✅ Burn complete:', burnSignature);
 
         await updateSwapTransaction(transactionId, {
