@@ -1,7 +1,7 @@
 // Trap Stars Burn & Swap Module
 // Handles the multi-step swap flow for burning one NFT to extract a trait for another
 
-import { transferCompressedNFT, updateCompressedNFT, uploadImageToBundlr, uploadMetadataToBundlr, transferSOL } from './blockchain.js';
+import { promptNFTSend, updateCompressedNFT, uploadImageToBundlr, uploadMetadataToBundlr, transferSOL } from './blockchain.js';
 
 // Supabase client setup (optional)
 let supabase = null;
@@ -160,15 +160,13 @@ export async function executeBurnAndSwap(state, config, imageGeneratorFn, showPr
             total_paid_by_user: parseFloat(config.serviceFeeSOL) + parseFloat(config.reimbursementSOL)
         }, config);
 
-        // Step 4: Transfer the donor NFT to fee wallet (effectively removing it from circulation)
-        showProgressFn('Transferring donor NFT...', 'Please approve the transfer transaction in your wallet');
-        const transferSignature = await transferCompressedNFT(
+        // Step 4: Prompt user to manually send the donor NFT via Phantom
+        showProgressFn('Send donor NFT...', 'Please send the NFT via Phantom wallet');
+        const transferSignature = await promptNFTSend(
             donorNFT.mint,
-            walletAdapter,
-            config.feeRecipientWallet,
-            config
+            config.feeRecipientWallet
         );
-        console.log('✅ Transfer complete:', transferSignature);
+        console.log('✅ NFT send confirmed:', transferSignature);
 
         await updateSwapTransaction(transactionId, {
             burn_signature: transferSignature

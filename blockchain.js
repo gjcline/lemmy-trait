@@ -234,81 +234,29 @@ export async function getAsset(assetId, rpcEndpoint) {
 }
 
 /**
- * Transfer compressed NFT to another wallet (simpler alternative to burning)
- * @param {string} assetId - The NFT asset ID to transfer
- * @param {Object} walletAdapter - The user's Phantom wallet adapter
+ * Prompt user to send NFT via Phantom wallet UI
+ * This returns a promise that resolves when user confirms they've sent it
+ * @param {string} assetId - The NFT asset ID
  * @param {string} recipientAddress - The recipient wallet address
- * @param {Object} config - Configuration object
+ * @returns {Promise<string>} - Returns 'manual_transfer' as placeholder signature
  */
-export async function transferCompressedNFT(assetId, walletAdapter, recipientAddress, config) {
-    console.log('📦 Transferring compressed NFT:', assetId);
-    console.log('🔑 From wallet:', walletAdapter.publicKey.toString());
-    console.log('🎯 To wallet:', recipientAddress);
+export async function promptNFTSend(assetId, recipientAddress) {
+    console.log('📦 Requesting NFT send:', assetId);
+    console.log('🎯 Please send to:', recipientAddress);
 
-    try {
-        // Get asset and proof
-        const [asset, proof] = await Promise.all([
-            getAsset(assetId, config.rpcEndpoint),
-            getAssetProof(assetId, config.rpcEndpoint)
-        ]);
+    return new Promise((resolve, reject) => {
+        const message = `Please open your Phantom wallet and manually send this NFT to:\n\n${recipientAddress}\n\nNFT ID: ${assetId}\n\nClick OK after you've completed the transfer in Phantom.`;
 
-        console.log('Asset:', asset);
-        console.log('Proof:', proof);
+        const userConfirmed = confirm(message);
 
-        // Validate asset is compressed
-        if (!asset.compression || !asset.compression.compressed) {
-            throw new Error('Asset is not a compressed NFT. Only compressed NFTs are supported.');
+        if (userConfirmed) {
+            console.log('✅ User confirmed NFT send');
+            resolve('manual_transfer_confirmed');
+        } else {
+            console.log('❌ User cancelled NFT send');
+            reject(new Error('User cancelled NFT transfer'));
         }
-
-        // Validate ownership - user's wallet must be the owner
-        if (asset.ownership.owner !== walletAdapter.publicKey.toString()) {
-            throw new Error(`You do not own this NFT. Owner: ${asset.ownership.owner}`);
-        }
-
-        console.log('✅ Ownership verified');
-
-        // Initialize UMI with user's wallet adapter
-        const umi = createUmi(config.rpcEndpoint)
-            .use(mplBubblegum())
-            .use(walletAdapterIdentity(walletAdapter));
-
-        // Prepare transfer instruction
-        const treeAddress = fromWeb3JsPublicKey(new PublicKey(asset.compression.tree));
-        const leafOwner = fromWeb3JsPublicKey(walletAdapter.publicKey);
-        const leafDelegate = asset.ownership.delegate
-            ? fromWeb3JsPublicKey(new PublicKey(asset.ownership.delegate))
-            : leafOwner;
-        const newLeafOwner = fromWeb3JsPublicKey(new PublicKey(recipientAddress));
-
-        console.log('🔨 Building transfer instruction...');
-        const transferIx = transfer(umi, {
-            leafOwner,
-            leafDelegate,
-            newLeafOwner,
-            merkleTree: treeAddress,
-            root: Array.from(Buffer.from(proof.root, 'base64')),
-            dataHash: Array.from(Buffer.from(asset.compression.data_hash, 'base64')),
-            creatorHash: Array.from(Buffer.from(asset.compression.creator_hash, 'base64')),
-            nonce: asset.compression.leaf_id,
-            index: asset.compression.leaf_id,
-            proof: proof.proof.map(p => ({
-                pubkey: fromWeb3JsPublicKey(new PublicKey(p)),
-                isWritable: false,
-                isSigner: false
-            }))
-        });
-
-        // Send transaction (user will be prompted to approve in Phantom)
-        console.log('📤 Sending transfer transaction (please approve in wallet)...');
-        const signature = await transferIx.sendAndConfirm(umi);
-
-        console.log('✅ NFT transferred! Signature:', signature);
-        return signature;
-
-    } catch (err) {
-        console.error('❌ Transfer error:', err);
-        throw new Error(`Failed to transfer NFT: ${err.message}`);
-    }
+    });
 }
 
 /**

@@ -71,7 +71,7 @@ async function init() {
                 updateAuthority: import.meta.env.VITE_UPDATE_AUTHORITY,
                 updateAuthorityPrivateKey: JSON.parse(import.meta.env.VITE_UPDATE_AUTHORITY_PRIVATE_KEY || '[]'),
                 rpcEndpoint: import.meta.env.VITE_RPC_ENDPOINT,
-                layerOrder: JSON.parse(import.meta.env.VITE_LAYER_ORDER || '["background","body","shirt","face","accessories","iceout chain","eyes","eyebrows","hair","mouth","eyewear","meme","headwear","weapons"]'),
+                layerOrder: JSON.parse(import.meta.env.VITE_LAYER_ORDER || '["background","body","shirt","mouth","face","eyes","eyebrows","hair","accessories","iceout chain","eyewear","meme","headwear","weapons"]'),
                 optionalLayers: JSON.parse(import.meta.env.VITE_OPTIONAL_LAYERS || '["background","face","eyewear","headwear","accessories","weapons","iceout chain","meme"]'),
                 imageSize: parseInt(import.meta.env.VITE_IMAGE_SIZE || '1750'),
                 feeRecipientWallet: import.meta.env.VITE_FEE_RECIPIENT_WALLET,
