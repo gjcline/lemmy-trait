@@ -234,14 +234,16 @@ export async function getAsset(assetId, rpcEndpoint) {
 }
 
 /**
- * Burn compressed NFT using user's wallet
- * @param {string} assetId - The NFT asset ID to burn
+ * Transfer compressed NFT to another wallet (simpler alternative to burning)
+ * @param {string} assetId - The NFT asset ID to transfer
  * @param {Object} walletAdapter - The user's Phantom wallet adapter
+ * @param {string} recipientAddress - The recipient wallet address
  * @param {Object} config - Configuration object
  */
-export async function burnCompressedNFT(assetId, walletAdapter, config) {
-    console.log('🔥 Burning compressed NFT:', assetId);
-    console.log('🔑 Using wallet:', walletAdapter.publicKey.toString());
+export async function transferCompressedNFT(assetId, walletAdapter, recipientAddress, config) {
+    console.log('📦 Transferring compressed NFT:', assetId);
+    console.log('🔑 From wallet:', walletAdapter.publicKey.toString());
+    console.log('🎯 To wallet:', recipientAddress);
 
     try {
         // Get asset and proof
@@ -269,18 +271,20 @@ export async function burnCompressedNFT(assetId, walletAdapter, config) {
         const umi = createUmi(config.rpcEndpoint)
             .use(mplBubblegum())
             .use(walletAdapterIdentity(walletAdapter));
-        
-        // Prepare burn instruction
+
+        // Prepare transfer instruction
         const treeAddress = fromWeb3JsPublicKey(new PublicKey(asset.compression.tree));
         const leafOwner = fromWeb3JsPublicKey(walletAdapter.publicKey);
         const leafDelegate = asset.ownership.delegate
             ? fromWeb3JsPublicKey(new PublicKey(asset.ownership.delegate))
             : leafOwner;
+        const newLeafOwner = fromWeb3JsPublicKey(new PublicKey(recipientAddress));
 
-        console.log('🔨 Building burn instruction...');
-        const burnIx = burn(umi, {
+        console.log('🔨 Building transfer instruction...');
+        const transferIx = transfer(umi, {
             leafOwner,
             leafDelegate,
+            newLeafOwner,
             merkleTree: treeAddress,
             root: Array.from(Buffer.from(proof.root, 'base64')),
             dataHash: Array.from(Buffer.from(asset.compression.data_hash, 'base64')),
@@ -295,15 +299,15 @@ export async function burnCompressedNFT(assetId, walletAdapter, config) {
         });
 
         // Send transaction (user will be prompted to approve in Phantom)
-        console.log('📤 Sending burn transaction (please approve in wallet)...');
-        const signature = await burnIx.sendAndConfirm(umi);
-        
-        console.log('✅ NFT burned! Signature:', signature);
+        console.log('📤 Sending transfer transaction (please approve in wallet)...');
+        const signature = await transferIx.sendAndConfirm(umi);
+
+        console.log('✅ NFT transferred! Signature:', signature);
         return signature;
-        
+
     } catch (err) {
-        console.error('❌ Burn error:', err);
-        throw new Error(`Failed to burn NFT: ${err.message}`);
+        console.error('❌ Transfer error:', err);
+        throw new Error(`Failed to transfer NFT: ${err.message}`);
     }
 }
 
