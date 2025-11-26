@@ -5,7 +5,8 @@ export default {
   resolve: {
     alias: {
       stream: 'stream-browserify',
-      buffer: 'buffer'
+      buffer: 'buffer',
+      util: 'util'
     }
   },
   define: {
