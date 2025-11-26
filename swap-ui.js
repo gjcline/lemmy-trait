@@ -169,42 +169,13 @@ function renderStep3RecipientSelection(state, contentDiv, nextBtn) {
 }
 
 // Step 4: Confirmation
-async function renderStep4Confirmation(state, contentDiv, nextBtn) {
+function renderStep4Confirmation(state, contentDiv, nextBtn) {
     const donor = state.swap.donorNFT;
     const recipient = state.swap.recipientNFT;
     const trait = state.swap.selectedTrait;
 
-    let userBalance = 0;
-    if (window.walletAdapter && state.walletAddress) {
-        const { getWalletBalance } = await import('./blockchain.js');
-        userBalance = await getWalletBalance(state.walletAddress, window.appConfig);
-    }
-
-    const requiredBalance = 0.040;
-    const hasEnoughBalance = userBalance >= 0.045;
-
     const html = `
         <div class="max-w-6xl mx-auto">
-            ${!hasEnoughBalance ? `
-                <div class="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-6 mb-6">
-                    <div class="flex gap-4">
-                        <div class="text-3xl">⚠️</div>
-                        <div class="flex-1">
-                            <h4 class="font-semibold text-yellow-300 mb-2">Insufficient Balance</h4>
-                            <p class="text-sm text-gray-300">
-                                Your wallet balance: <span class="font-mono">${userBalance.toFixed(4)} SOL</span><br>
-                                Required balance: <span class="font-mono">0.045 SOL</span> (0.040 + 0.005 buffer)<br>
-                                Please add more SOL to your wallet before proceeding.
-                            </p>
-                        </div>
-                    </div>
-                </div>
-            ` : `
-                <div class="glass rounded-xl p-4 mb-6 flex justify-between items-center">
-                    <span class="text-gray-400">Your Wallet Balance</span>
-                    <span class="font-mono text-green-400">${userBalance.toFixed(4)} SOL</span>
-                </div>
-            `}
             <div class="grid md:grid-cols-3 gap-6 mb-8">
                 <!-- Donor NFT -->
                 <div class="glass rounded-2xl p-6">
@@ -287,7 +258,7 @@ async function renderStep4Confirmation(state, contentDiv, nextBtn) {
                             <li>• This action is irreversible once the transaction is confirmed</li>
                             <li>• You will be charged 0.040 SOL total (service fee + blockchain costs)</li>
                             <li>• Payment must be completed before the burn and swap begins</li>
-                            <li>• Make sure you have at least 0.045 SOL in your wallet</li>
+                            <li>• Your wallet will prompt you to approve two payments and sign transactions</li>
                         </ul>
                     </div>
                 </div>
@@ -296,9 +267,8 @@ async function renderStep4Confirmation(state, contentDiv, nextBtn) {
     `;
 
     contentDiv.innerHTML = html;
-    nextBtn.disabled = !hasEnoughBalance;
-    nextBtn.classList.toggle('opacity-50', !hasEnoughBalance);
-    nextBtn.classList.toggle('cursor-not-allowed', !hasEnoughBalance);
+    nextBtn.disabled = false;
+    nextBtn.classList.remove('opacity-50', 'cursor-not-allowed');
 }
 
 // Make functions globally available
