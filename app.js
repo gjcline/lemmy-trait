@@ -2,7 +2,10 @@
 // This file handles all wallet connections, NFT fetching, image generation, and blockchain transactions
 
 import { Buffer } from 'buffer';
+import process from 'process';
 window.Buffer = Buffer;
+window.process = process;
+window.global = window;
 
 import { DotShaderBackground } from './shader-background.js';
 import { getBackgroundUrl } from './background-urls.js';
