@@ -62,7 +62,7 @@ async function init() {
 
     let configLoaded = false;
 
-    // Try environment variables first (production)
+    // Try environment variables (production)
     if (import.meta.env.VITE_HELIUS_API_KEY) {
         try {
             config = {
@@ -71,8 +71,8 @@ async function init() {
                 updateAuthority: import.meta.env.VITE_UPDATE_AUTHORITY,
                 updateAuthorityPrivateKey: JSON.parse(import.meta.env.VITE_UPDATE_AUTHORITY_PRIVATE_KEY || '[]'),
                 rpcEndpoint: import.meta.env.VITE_RPC_ENDPOINT,
-                layerOrder: JSON.parse(import.meta.env.VITE_LAYER_ORDER || '["background","body","shirt","weapons","accessories","logo","meme","iceout chain","face","mouth","eyes","eyebrows","hair","eyewear","headwear"]'),
-                optionalLayers: JSON.parse(import.meta.env.VITE_OPTIONAL_LAYERS || '["face","eyewear","headwear","accessories","weapons","iceout chain"]'),
+                layerOrder: JSON.parse(import.meta.env.VITE_LAYER_ORDER || '["background","body","shirt","face","accessories","iceout chain","eyes","eyebrows","hair","mouth","eyewear","meme","headwear","weapons"]'),
+                optionalLayers: JSON.parse(import.meta.env.VITE_OPTIONAL_LAYERS || '["background","face","eyewear","headwear","accessories","weapons","iceout chain","meme"]'),
                 imageSize: parseInt(import.meta.env.VITE_IMAGE_SIZE || '1750'),
                 feeRecipientWallet: import.meta.env.VITE_FEE_RECIPIENT_WALLET,
                 serviceFeeSOL: import.meta.env.VITE_SERVICE_FEE_SOL || '0.025',
@@ -81,25 +81,23 @@ async function init() {
                 supabaseAnonKey: import.meta.env.VITE_SUPABASE_ANON_KEY
             };
             console.log('✅ Configuration loaded from environment variables');
+            console.log('📋 Layer order:', config.layerOrder);
+            console.log('📋 Optional layers:', config.optionalLayers);
+
+            // Log which values are using fallbacks
+            if (!import.meta.env.VITE_LAYER_ORDER) console.warn('⚠️ Using fallback layer order');
+            if (!import.meta.env.VITE_OPTIONAL_LAYERS) console.warn('⚠️ Using fallback optional layers');
+            if (!import.meta.env.VITE_IMAGE_SIZE) console.warn('⚠️ Using fallback image size');
+            if (!import.meta.env.VITE_SERVICE_FEE_SOL) console.warn('⚠️ Using fallback service fee');
+            if (!import.meta.env.VITE_REIMBURSEMENT_SOL) console.warn('⚠️ Using fallback reimbursement');
+
             configLoaded = true;
         } catch (err) {
             console.error('❌ Error parsing environment variables:', err);
         }
-    }
-
-    // Fall back to config.json if env vars not available (local development)
-    if (!configLoaded) {
-        try {
-            console.log('Attempting to load config.json...');
-            const response = await fetch('config.json');
-            if (response.ok) {
-                config = await response.json();
-                console.log('✅ Configuration loaded from config.json');
-                configLoaded = true;
-            }
-        } catch (err) {
-            console.log('config.json not available');
-        }
+    } else {
+        console.error('❌ VITE_HELIUS_API_KEY not found in environment variables');
+        console.log('💡 Available env vars:', Object.keys(import.meta.env));
     }
 
     // If no config loaded, show error and stop
@@ -148,21 +146,27 @@ function setupEventListeners() {
 window.showConfigHelp = function() {
     alert(`📝 Configuration Instructions:
 
-1. Create a file called "config.json" in this folder
-2. Copy this template and fill in your details:
+This app requires environment variables to be configured in your Netlify dashboard.
 
-{
-  "heliusApiKey": "YOUR_HELIUS_API_KEY",
-  "collectionAddress": "YOUR_COLLECTION_ADDRESS",
-  "updateAuthority": "YOUR_UPDATE_AUTHORITY_WALLET",
-  "updateAuthorityPrivateKey": [YOUR,PRIVATE,KEY,ARRAY],
-  "rpcEndpoint": "https://mainnet.helius-rpc.com/?api-key=YOUR_KEY",
-  "layerOrder": ["background", "body", "shirt", ...],
-  "optionalLayers": ["face", "eyewear", ...],
-  "imageSize": 1750
-}
+Required Environment Variables:
+- VITE_HELIUS_API_KEY
+- VITE_COLLECTION_ADDRESS
+- VITE_UPDATE_AUTHORITY
+- VITE_UPDATE_AUTHORITY_PRIVATE_KEY
+- VITE_RPC_ENDPOINT
+- VITE_LAYER_ORDER
+- VITE_OPTIONAL_LAYERS
+- VITE_IMAGE_SIZE
+- VITE_FEE_RECIPIENT_WALLET
+- VITE_SERVICE_FEE_SOL
+- VITE_REIMBURSEMENT_SOL
 
-3. Save the file and refresh this page`);
+Optional (for transaction tracking):
+- VITE_SUPABASE_URL
+- VITE_SUPABASE_ANON_KEY
+
+⚠️ NEVER store private keys in config files or commit them to your repository.
+Always use Netlify's environment variables for security.`);
 };
 
 // Utility functions
