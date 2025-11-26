@@ -18,16 +18,16 @@ const folderMapping = {
     'Background': 'background',
     'Body': 'body',
     'Shirt': 'shirt',
-    'Weapons': 'weapons',
     'Accessories': 'accessories',
     'Logo': 'logo',
     'Meme': 'meme',
     'Iceout Chain': 'iceout chain',
     'Face': 'face',
-    'Mouth': 'mouth',
     'Eyes': 'eyes',
     'Eyebrows': 'eyebrows',
     'Hair': 'hair',
+    'Mouth': 'mouth',
+    'Weapons': 'weapons',
     'Eyewear': 'eyewear',
     'Headwear': 'headwear'
 };
