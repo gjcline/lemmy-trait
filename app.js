@@ -76,7 +76,9 @@ async function init() {
                 imageSize: parseInt(import.meta.env.VITE_IMAGE_SIZE || '1750'),
                 feeRecipientWallet: import.meta.env.VITE_FEE_RECIPIENT_WALLET,
                 serviceFeeSOL: import.meta.env.VITE_SERVICE_FEE_SOL || '0.025',
-                reimbursementSOL: import.meta.env.VITE_REIMBURSEMENT_SOL || '0.015'
+                reimbursementSOL: import.meta.env.VITE_REIMBURSEMENT_SOL || '0.015',
+                supabaseUrl: import.meta.env.VITE_SUPABASE_URL,
+                supabaseAnonKey: import.meta.env.VITE_SUPABASE_ANON_KEY
             };
             console.log('✅ Configuration loaded from environment variables');
             configLoaded = true;

@@ -7,17 +7,20 @@ import { burnCompressedNFT, updateCompressedNFT, uploadImageToBundlr, uploadMeta
 let supabase = null;
 
 // Initialize Supabase
-export function initSupabase() {
+export function initSupabase(config) {
+    if (!config || !config.supabaseUrl || !config.supabaseAnonKey) {
+        throw new Error('Supabase configuration is required');
+    }
     const { createClient } = window.supabase;
     supabase = createClient(
-        import.meta.env.VITE_SUPABASE_URL,
-        import.meta.env.VITE_SUPABASE_ANON_KEY
+        config.supabaseUrl,
+        config.supabaseAnonKey
     );
 }
 
 // Create transaction record
-export async function createSwapTransaction(walletAddress, donorNFT, recipientNFT, trait) {
-    if (!supabase) initSupabase();
+export async function createSwapTransaction(walletAddress, donorNFT, recipientNFT, trait, config) {
+    if (!supabase) initSupabase(config);
 
     const { data, error } = await supabase
         .from('swap_transactions')
@@ -43,8 +46,8 @@ export async function createSwapTransaction(walletAddress, donorNFT, recipientNF
 }
 
 // Update transaction record
-export async function updateSwapTransaction(transactionId, updates) {
-    if (!supabase) initSupabase();
+export async function updateSwapTransaction(transactionId, updates, config) {
+    if (!supabase) initSupabase(config);
 
     const { data, error } = await supabase
         .from('swap_transactions')
@@ -62,8 +65,8 @@ export async function updateSwapTransaction(transactionId, updates) {
 }
 
 // Get user's swap transaction history
-export async function getUserSwapHistory(walletAddress) {
-    if (!supabase) initSupabase();
+export async function getUserSwapHistory(walletAddress, config) {
+    if (!supabase) initSupabase(config);
 
     const { data, error } = await supabase
         .from('swap_transactions')
@@ -91,7 +94,8 @@ export async function executeBurnAndSwap(state, config, imageGeneratorFn, showPr
             state.walletAddress,
             donorNFT,
             recipientNFT,
-            selectedTrait
+            selectedTrait,
+            config
         );
         transactionId = transaction.id;
         console.log('✅ Transaction record created:', transactionId);
@@ -109,7 +113,7 @@ export async function executeBurnAndSwap(state, config, imageGeneratorFn, showPr
         await updateSwapTransaction(transactionId, {
             service_fee_signature: serviceFeeSignature,
             service_fee_amount: parseFloat(config.serviceFeeSOL)
-        });
+        }, config);
 
         // Step 3: Collect reimbursement from user for blockchain costs
         showProgressFn('Processing cost reimbursement...', `Transferring ${config.reimbursementSOL} SOL to authority wallet`);
@@ -125,7 +129,7 @@ export async function executeBurnAndSwap(state, config, imageGeneratorFn, showPr
             reimbursement_signature: reimbursementSignature,
             reimbursement_amount: parseFloat(config.reimbursementSOL),
             total_paid_by_user: parseFloat(config.serviceFeeSOL) + parseFloat(config.reimbursementSOL)
-        });
+        }, config);
 
         // Step 4: Burn the donor NFT
         showProgressFn('Burning donor NFT...', 'This will permanently destroy the NFT');
@@ -134,7 +138,7 @@ export async function executeBurnAndSwap(state, config, imageGeneratorFn, showPr
 
         await updateSwapTransaction(transactionId, {
             burn_signature: burnSignature
-        });
+        }, config);
 
         // Step 5: Generate new image with swapped trait
         showProgressFn('Generating new image...', 'Compositing layers');
@@ -186,7 +190,7 @@ export async function executeBurnAndSwap(state, config, imageGeneratorFn, showPr
         await updateSwapTransaction(transactionId, {
             new_image_url: imageUrl,
             new_metadata_url: metadataUrl
-        });
+        }, config);
 
         // Step 8: Update on-chain metadata
         showProgressFn('Updating NFT on-chain...', 'Signing with update authority');
@@ -199,7 +203,7 @@ export async function executeBurnAndSwap(state, config, imageGeneratorFn, showPr
             status: 'completed',
             completed_at: new Date().toISOString(),
             cost_sol: parseFloat(config.serviceFeeSOL) + parseFloat(config.reimbursementSOL)
-        });
+        }, config);
 
         return {
             success: true,
@@ -220,7 +224,7 @@ export async function executeBurnAndSwap(state, config, imageGeneratorFn, showPr
             await updateSwapTransaction(transactionId, {
                 status: 'failed',
                 error_message: error.message
-            });
+            }, config);
         }
 
         throw error;
