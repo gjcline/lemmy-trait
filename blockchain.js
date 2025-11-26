@@ -1,16 +1,70 @@
 // Trap Stars Trait Shop - Blockchain Integration
 // Handles Bundlr uploads and Metaplex Bubblegum operations
 
-import { Connection, Keypair, PublicKey, Transaction } from '@solana/web3.js';
+import { Connection, Keypair, PublicKey, Transaction, SystemProgram, LAMPORTS_PER_SOL } from '@solana/web3.js';
 import { createUmi } from '@metaplex-foundation/umi-bundle-defaults';
-import { 
-    mplBubblegum, 
+import {
+    mplBubblegum,
     transfer,
     burn,
     updateMetadata
 } from '@metaplex-foundation/mpl-bubblegum';
 import { fromWeb3JsKeypair, fromWeb3JsPublicKey } from '@metaplex-foundation/umi-web3js-adapters';
 import Bundlr from '@bundlr-network/client';
+
+/**
+ * Transfer SOL from user's wallet to a recipient
+ */
+export async function transferSOL(walletAdapter, recipientAddress, amountSOL, config) {
+    console.log(`💸 Transferring ${amountSOL} SOL to ${recipientAddress}...`);
+
+    try {
+        const connection = new Connection(config.rpcEndpoint, 'confirmed');
+
+        const transaction = new Transaction().add(
+            SystemProgram.transfer({
+                fromPubkey: walletAdapter.publicKey,
+                toPubkey: new PublicKey(recipientAddress),
+                lamports: Math.floor(amountSOL * LAMPORTS_PER_SOL)
+            })
+        );
+
+        const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash();
+        transaction.recentBlockhash = blockhash;
+        transaction.feePayer = walletAdapter.publicKey;
+
+        const signedTransaction = await walletAdapter.signTransaction(transaction);
+
+        const signature = await connection.sendRawTransaction(signedTransaction.serialize());
+
+        await connection.confirmTransaction({
+            signature,
+            blockhash,
+            lastValidBlockHeight
+        });
+
+        console.log(`✅ Transfer complete: ${signature}`);
+        return signature;
+
+    } catch (err) {
+        console.error('❌ Transfer error:', err);
+        throw new Error(`Failed to transfer SOL: ${err.message}`);
+    }
+}
+
+/**
+ * Get wallet balance in SOL
+ */
+export async function getWalletBalance(publicKey, config) {
+    try {
+        const connection = new Connection(config.rpcEndpoint, 'confirmed');
+        const balance = await connection.getBalance(new PublicKey(publicKey));
+        return balance / LAMPORTS_PER_SOL;
+    } catch (err) {
+        console.error('❌ Balance check error:', err);
+        return 0;
+    }
+}
 
 /**
  * Upload image to Arweave via Bundlr

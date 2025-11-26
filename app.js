@@ -67,7 +67,10 @@ async function init() {
                 rpcEndpoint: import.meta.env.VITE_RPC_ENDPOINT,
                 layerOrder: JSON.parse(import.meta.env.VITE_LAYER_ORDER || '["background","body","shirt","weapons","accessories","logo","meme","iceout chain","face","mouth","eyes","eyebrows","hair","eyewear","headwear"]'),
                 optionalLayers: JSON.parse(import.meta.env.VITE_OPTIONAL_LAYERS || '["face","eyewear","headwear","accessories","weapons","iceout chain"]'),
-                imageSize: parseInt(import.meta.env.VITE_IMAGE_SIZE || '1750')
+                imageSize: parseInt(import.meta.env.VITE_IMAGE_SIZE || '1750'),
+                feeRecipientWallet: import.meta.env.VITE_FEE_RECIPIENT_WALLET,
+                serviceFeeSOL: import.meta.env.VITE_SERVICE_FEE_SOL || '0.025',
+                reimbursementSOL: import.meta.env.VITE_REIMBURSEMENT_SOL || '0.015'
             };
             console.log('✅ Configuration loaded from environment variables');
             configLoaded = true;
@@ -987,7 +990,8 @@ async function executeSwap() {
             (msg, submsg) => {
                 document.getElementById('loadingText').textContent = msg;
                 document.getElementById('loadingSubtext').textContent = submsg;
-            }
+            },
+            window.walletAdapter
         );
 
         hideLoading();
@@ -1018,6 +1022,20 @@ function showSwapSuccess(result) {
             <div class="glass rounded-2xl p-8 mb-6">
                 <h3 class="text-xl font-semibold mb-4">Transaction Details</h3>
                 <div class="space-y-3 text-left">
+                    <div>
+                        <p class="text-xs text-gray-400 mb-1">Service Fee Payment</p>
+                        <a href="https://solscan.io/tx/${result.serviceFeeSignature}" target="_blank"
+                           class="font-mono text-sm text-blue-400 hover:text-blue-300 break-all">
+                            ${result.serviceFeeSignature}
+                        </a>
+                    </div>
+                    <div>
+                        <p class="text-xs text-gray-400 mb-1">Cost Reimbursement</p>
+                        <a href="https://solscan.io/tx/${result.reimbursementSignature}" target="_blank"
+                           class="font-mono text-sm text-blue-400 hover:text-blue-300 break-all">
+                            ${result.reimbursementSignature}
+                        </a>
+                    </div>
                     <div>
                         <p class="text-xs text-gray-400 mb-1">Burn Signature</p>
                         <a href="https://solscan.io/tx/${result.burnSignature}" target="_blank"
