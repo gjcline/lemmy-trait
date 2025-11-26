@@ -1,6 +1,9 @@
 // Trap Stars Trait Shop - Production App
 // This file handles all wallet connections, NFT fetching, image generation, and blockchain transactions
 
+import { Buffer } from 'buffer';
+window.Buffer = Buffer;
+
 import { DotShaderBackground } from './shader-background.js';
 import { getBackgroundUrl } from './background-urls.js';
 
@@ -965,18 +968,6 @@ async function handleSwapNext() {
 
 // Execute the swap transaction
 async function executeSwap() {
-    const confirmed = confirm(
-        `⚠️ FINAL CONFIRMATION ⚠️\n\n` +
-        `You are about to:\n` +
-        `• PERMANENTLY BURN: ${state.swap.donorNFT.name}\n` +
-        `• Extract trait: ${state.swap.selectedTrait.category} - ${state.swap.selectedTrait.value}\n` +
-        `• Apply to: ${state.swap.recipientNFT.name}\n\n` +
-        `This action CANNOT be undone!\n\n` +
-        `Type 'CONFIRM' to proceed.`
-    );
-
-    if (!confirmed) return;
-
     try {
         const { executeBurnAndSwap } = await import('./swap.js');
 
