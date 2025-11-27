@@ -244,7 +244,15 @@ export async function getAsset(assetId, rpcEndpoint) {
  * Detect NFT type from asset data
  */
 export function detectNFTType(asset) {
+    console.log('🔍 Analyzing asset for type detection:', {
+        interface: asset.interface,
+        ownershipOwner: asset.ownership?.owner,
+        hasCompression: !!asset.compression,
+        compressed: asset.compression?.compressed
+    });
+
     if (asset.interface === 'V1_NFT' ||
+        asset.interface === 'MplCoreAsset' ||
         (asset.ownership && asset.ownership.owner === 'CoREENxT6tW1HoK8ypY1SxRMZTcVPm7R94rH4PZNhX7d')) {
         console.log('🎯 Detected: Metaplex Core NFT');
         return 'core';
@@ -256,6 +264,7 @@ export function detectNFTType(asset) {
     }
 
     console.log('🎯 Detected: Standard NFT');
+    console.warn('⚠️ Asset data:', JSON.stringify(asset, null, 2));
     return 'standard';
 }
 

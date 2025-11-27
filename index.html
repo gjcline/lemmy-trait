@@ -462,6 +462,19 @@
                 <div id="progressSteps" class="space-y-3"></div>
             </div>
         </div>
+
+        <!-- Full Page Loading Overlay -->
+        <div id="fullPageLoading" class="fixed inset-0 bg-black/95 backdrop-blur-md flex items-center justify-center hidden z-50">
+            <div class="text-center px-6">
+                <div class="spinner mx-auto mb-8 w-20 h-20"></div>
+                <h2 id="fullPageLoadingTitle" class="text-3xl font-bold mb-4"></h2>
+                <p id="fullPageLoadingSubtext" class="text-lg text-gray-300 mb-8"></p>
+                <div class="glass rounded-xl p-6 max-w-md mx-auto">
+                    <p class="text-yellow-300 text-sm font-semibold mb-2">⚠️ DO NOT LEAVE THIS PAGE</p>
+                    <p class="text-gray-400 text-xs">This process may take a minute. Leaving will cancel the transaction.</p>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script type="module" src="swap-ui.js"></script>

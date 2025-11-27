@@ -191,6 +191,16 @@ function hideLoading() {
     showElement(document.getElementById('content'));
 }
 
+function showFullPageLoading(title, subtext = '') {
+    document.getElementById('fullPageLoadingTitle').textContent = title;
+    document.getElementById('fullPageLoadingSubtext').textContent = subtext;
+    showElement(document.getElementById('fullPageLoading'));
+}
+
+function hideFullPageLoading() {
+    hideElement(document.getElementById('fullPageLoading'));
+}
+
 function showProgressModal(steps) {
     const modal = document.getElementById('progressModal');
     const stepsContainer = document.getElementById('progressSteps');
@@ -989,21 +999,21 @@ async function executeSwap() {
 
         const { executeBurnAndSwap } = await import('./swap.js');
 
-        // Show progress during execution
-        showLoading('Executing burn and swap...', 'Please wait, do not close this page');
+        // Show full-page loading overlay
+        showFullPageLoading('Processing Burn & Swap', 'Please approve transactions in your wallet');
 
         const result = await executeBurnAndSwap(
             state,
             config,
             generateImageFromTraits,
             (msg, submsg) => {
-                document.getElementById('loadingText').textContent = msg;
-                document.getElementById('loadingSubtext').textContent = submsg;
+                document.getElementById('fullPageLoadingTitle').textContent = msg;
+                document.getElementById('fullPageLoadingSubtext').textContent = submsg;
             },
             window.walletAdapter
         );
 
-        hideLoading();
+        hideFullPageLoading();
 
         // Show success
         showSwapSuccess(result);
@@ -1012,7 +1022,7 @@ async function executeSwap() {
         await fetchUserNFTs(state.walletAddress);
 
     } catch (error) {
-        hideLoading();
+        hideFullPageLoading();
         console.error('Swap failed:', error);
         alert(`Swap failed: ${error.message}\n\nPlease check the console for details.`);
     }
