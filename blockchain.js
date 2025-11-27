@@ -77,11 +77,11 @@ export async function getWalletBalance(publicKey, config) {
  */
 export async function uploadImageToBundlr(imageBlob, config) {
     console.log('📤 Uploading image to Arweave via Bundlr...');
-    
+
     try {
         // Convert private key array to Uint8Array
         const privateKeyArray = new Uint8Array(config.updateAuthorityPrivateKey);
-        
+
         // Initialize Bundlr
         const bundlr = new Bundlr(
             'https://node1.bundlr.network',
@@ -91,41 +91,42 @@ export async function uploadImageToBundlr(imageBlob, config) {
                 providerUrl: config.rpcEndpoint
             }
         );
-        
+
         console.log('✅ Bundlr initialized');
-        
-        // Check balance
-        const balance = await bundlr.getLoadedBalance();
-        const balanceInSOL = balance.toString() / 1e9;
-        console.log(`💰 Bundlr balance: ${balanceInSOL} SOL`);
 
         // Get upload cost
         const imageBuffer = await imageBlob.arrayBuffer();
         const price = await bundlr.getPrice(imageBuffer.byteLength);
         const priceInSOL = price.toString() / 1e9;
         console.log(`💵 Upload cost: ${priceInSOL} SOL`);
-        
-        // Fund if needed
-        if (balance.lt(price)) {
-            console.log('⚠️ Insufficient balance, funding Bundlr...');
-            const fundAmount = price.multipliedBy(2); // Fund 2x the needed amount
-            const fundTx = await bundlr.fund(fundAmount);
-            console.log('✅ Funded Bundlr:', fundTx);
+
+        // Check balance (but don't fund automatically to avoid deprecated RPC call)
+        let balance;
+        try {
+            balance = await bundlr.getLoadedBalance();
+            const balanceInSOL = balance.toString() / 1e9;
+            console.log(`💰 Bundlr balance: ${balanceInSOL} SOL`);
+
+            if (balance.lt(price)) {
+                throw new Error(`Insufficient Bundlr balance. Please ensure the update authority wallet has sufficient balance. Required: ${priceInSOL} SOL`);
+            }
+        } catch (balanceErr) {
+            console.warn('⚠️ Could not check Bundlr balance, attempting upload anyway:', balanceErr.message);
         }
-        
+
         // Upload image
         console.log('⬆️ Uploading image...');
         const tags = [
             { name: 'Content-Type', value: 'image/png' },
             { name: 'App-Name', value: 'TrapStarsTraitShop' }
         ];
-        
+
         const tx = await bundlr.upload(imageBuffer, { tags });
         const imageUrl = `https://arweave.net/${tx.id}`;
-        
+
         console.log('✅ Image uploaded:', imageUrl);
         return imageUrl;
-        
+
     } catch (err) {
         console.error('❌ Bundlr upload error:', err);
         throw new Error(`Failed to upload image: ${err.message}`);
