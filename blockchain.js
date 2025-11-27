@@ -15,7 +15,7 @@ import {
 } from '@metaplex-foundation/mpl-core';
 import { fromWeb3JsKeypair, fromWeb3JsPublicKey } from '@metaplex-foundation/umi-web3js-adapters';
 import { walletAdapterIdentity } from '@metaplex-foundation/umi-signer-wallet-adapters';
-import { publicKey as umiPublicKey, signerIdentity } from '@metaplex-foundation/umi';
+import { publicKey as umiPublicKey, signerIdentity, createSignerFromKeypair } from '@metaplex-foundation/umi';
 
 /**
  * Transfer SOL from user's wallet to a recipient
@@ -319,8 +319,10 @@ async function updateCoreNFT(assetId, newMetadataUri, config) {
         const web3Keypair = Keypair.fromSecretKey(privateKeyArray);
         const umiKeypair = fromWeb3JsKeypair(web3Keypair);
 
-        const umi = createUmi(config.rpcEndpoint)
-            .use(signerIdentity(umiKeypair));
+        const umi = createUmi(config.rpcEndpoint);
+        const umiSigner = createSignerFromKeypair(umi, umiKeypair);
+
+        umi.use(signerIdentity(umiSigner));
 
         const assetAddress = umiPublicKey(assetId);
 
@@ -463,8 +465,10 @@ export async function updateCompressedNFT(assetId, newMetadataUri, config) {
             const umiKeypair = fromWeb3JsKeypair(web3Keypair);
 
             const umi = createUmi(config.rpcEndpoint)
-                .use(mplBubblegum())
-                .use(signerIdentity(umiKeypair));
+                .use(mplBubblegum());
+
+            const umiSigner = createSignerFromKeypair(umi, umiKeypair);
+            umi.use(signerIdentity(umiSigner));
 
             const treeAddress = fromWeb3JsPublicKey(new PublicKey(asset.compression.tree));
 
