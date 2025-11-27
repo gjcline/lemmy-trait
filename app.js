@@ -1056,10 +1056,10 @@ function showSwapSuccess(result) {
                         </a>
                     </div>
                     <div>
-                        <p class="text-xs text-gray-400 mb-1">Burn Signature</p>
-                        <a href="https://solscan.io/tx/${result.burnSignature}" target="_blank"
+                        <p class="text-xs text-gray-400 mb-1">Transfer Signature</p>
+                        <a href="https://solscan.io/tx/${result.transferSignature}" target="_blank"
                            class="font-mono text-sm text-blue-400 hover:text-blue-300 break-all">
-                            ${result.burnSignature}
+                            ${result.transferSignature}
                         </a>
                     </div>
                     <div>

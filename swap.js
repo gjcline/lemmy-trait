@@ -244,7 +244,7 @@ export async function executeBurnAndSwap(state, config, imageGeneratorFn, showPr
             transactionId,
             serviceFeeSignature,
             reimbursementSignature,
-            burnSignature,
+            transferSignature,
             updateSignature,
             imageUrl,
             metadataUrl
