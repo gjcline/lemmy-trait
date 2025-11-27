@@ -275,16 +275,31 @@ async function transferCoreNFT(assetId, recipientAddress, walletAdapter, config)
     console.log('🎯 Transferring Core NFT:', assetId);
 
     try {
+        const asset = await getAsset(assetId, config.rpcEndpoint);
+        console.log('Asset data for transfer:', asset);
+
         const umi = createUmi(config.rpcEndpoint)
             .use(walletAdapterIdentity(walletAdapter));
 
         const assetAddress = umiPublicKey(assetId);
         const newOwner = umiPublicKey(recipientAddress);
 
-        const tx = await transferV1(umi, {
+        const transferParams = {
             asset: assetAddress,
             newOwner: newOwner
-        }).sendAndConfirm(umi);
+        };
+
+        if (asset.grouping && asset.grouping.length > 0) {
+            const collectionInfo = asset.grouping.find(g => g.group_key === 'collection');
+            if (collectionInfo) {
+                console.log('Adding collection to transfer:', collectionInfo.group_value);
+                transferParams.collection = umiPublicKey(collectionInfo.group_value);
+            }
+        }
+
+        console.log('Transfer params:', transferParams);
+
+        const tx = await transferV1(umi, transferParams).sendAndConfirm(umi);
 
         console.log('✅ Core NFT transferred! Signature:', tx.signature);
         return tx.signature;
@@ -306,6 +321,9 @@ async function updateCoreNFT(assetId, newMetadataUri, config) {
     console.log('New metadata URI:', newMetadataUri);
 
     try {
+        const asset = await getAsset(assetId, config.rpcEndpoint);
+        console.log('Asset data for update:', asset);
+
         const umi = createUmi(config.rpcEndpoint);
 
         const privateKeyArray = new Uint8Array(config.updateAuthorityPrivateKey);
@@ -316,10 +334,22 @@ async function updateCoreNFT(assetId, newMetadataUri, config) {
 
         const assetAddress = umiPublicKey(assetId);
 
-        const tx = await updateV1(umi, {
+        const updateParams = {
             asset: assetAddress,
             newUri: newMetadataUri
-        }).sendAndConfirm(umi);
+        };
+
+        if (asset.grouping && asset.grouping.length > 0) {
+            const collectionInfo = asset.grouping.find(g => g.group_key === 'collection');
+            if (collectionInfo) {
+                console.log('Adding collection to update:', collectionInfo.group_value);
+                updateParams.collection = umiPublicKey(collectionInfo.group_value);
+            }
+        }
+
+        console.log('Update params:', updateParams);
+
+        const tx = await updateV1(umi, updateParams).sendAndConfirm(umi);
 
         console.log('✅ Core NFT updated! Signature:', tx.signature);
         return tx.signature;
