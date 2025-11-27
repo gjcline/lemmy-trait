@@ -79,23 +79,20 @@ export async function uploadImageToPinata(imageBlob, config) {
 
     try {
         const formData = new FormData();
-        formData.append('file', imageBlob, 'nft-image.png');
+        const file = new File([imageBlob], 'nft-image.png', { type: 'image/png' });
+        formData.append('file', file);
+        formData.append('network', 'public');
 
-        const metadata = JSON.stringify({
-            name: 'TrapStars NFT Image',
+        const keyvalues = JSON.stringify({
             keyvalues: {
                 app: 'TrapStarsTraitShop'
             }
         });
-        formData.append('pinataMetadata', metadata);
+        formData.append('keyvalues', keyvalues);
+        formData.append('name', 'TrapStars NFT Image');
 
-        const options = JSON.stringify({
-            cidVersion: 1
-        });
-        formData.append('pinataOptions', options);
-
-        console.log('⬆️ Uploading to Pinata...');
-        const response = await fetch('https://api.pinata.cloud/pinning/pinFileToIPFS', {
+        console.log('⬆️ Uploading to Pinata v3...');
+        const response = await fetch('https://uploads.pinata.cloud/v3/files', {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${config.pinataJwt}`
@@ -109,10 +106,10 @@ export async function uploadImageToPinata(imageBlob, config) {
         }
 
         const result = await response.json();
-        const imageUrl = `https://gateway.pinata.cloud/ipfs/${result.IpfsHash}`;
+        const imageUrl = `https://gateway.pinata.cloud/ipfs/${result.data.cid}`;
 
         console.log('✅ Image uploaded to IPFS:', imageUrl);
-        console.log('📌 IPFS CID:', result.IpfsHash);
+        console.log('📌 IPFS CID:', result.data.cid);
         return imageUrl;
 
     } catch (err) {
@@ -128,30 +125,30 @@ export async function uploadMetadataToPinata(metadata, config) {
     console.log('📤 Uploading metadata to IPFS via Pinata...');
 
     try {
-        const pinataMetadata = {
-            name: 'TrapStars NFT Metadata',
+        const formData = new FormData();
+        const json = JSON.stringify(metadata);
+        const blob = new Blob([json], { type: 'application/json' });
+        const file = new File([blob], 'metadata.json', { type: 'application/json' });
+
+        formData.append('file', file);
+        formData.append('network', 'public');
+
+        const keyvalues = JSON.stringify({
             keyvalues: {
                 app: 'TrapStarsTraitShop',
                 nft_name: metadata.name || 'TrapStars NFT'
             }
-        };
+        });
+        formData.append('keyvalues', keyvalues);
+        formData.append('name', 'TrapStars NFT Metadata');
 
-        const data = {
-            pinataContent: metadata,
-            pinataMetadata: pinataMetadata,
-            pinataOptions: {
-                cidVersion: 1
-            }
-        };
-
-        console.log('⬆️ Uploading metadata to Pinata...');
-        const response = await fetch('https://api.pinata.cloud/pinning/pinJSONToIPFS', {
+        console.log('⬆️ Uploading metadata to Pinata v3...');
+        const response = await fetch('https://uploads.pinata.cloud/v3/files', {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json',
                 'Authorization': `Bearer ${config.pinataJwt}`
             },
-            body: JSON.stringify(data)
+            body: formData
         });
 
         if (!response.ok) {
@@ -160,10 +157,10 @@ export async function uploadMetadataToPinata(metadata, config) {
         }
 
         const result = await response.json();
-        const metadataUrl = `https://gateway.pinata.cloud/ipfs/${result.IpfsHash}`;
+        const metadataUrl = `https://gateway.pinata.cloud/ipfs/${result.data.cid}`;
 
         console.log('✅ Metadata uploaded to IPFS:', metadataUrl);
-        console.log('📌 IPFS CID:', result.IpfsHash);
+        console.log('📌 IPFS CID:', result.data.cid);
         return metadataUrl;
 
     } catch (err) {
