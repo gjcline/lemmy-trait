@@ -81,15 +81,6 @@ export async function uploadImageToPinata(imageBlob, config) {
         const formData = new FormData();
         const file = new File([imageBlob], 'nft-image.png', { type: 'image/png' });
         formData.append('file', file);
-        formData.append('network', 'public');
-
-        const keyvalues = JSON.stringify({
-            keyvalues: {
-                app: 'TrapStarsTraitShop'
-            }
-        });
-        formData.append('keyvalues', keyvalues);
-        formData.append('name', 'TrapStars NFT Image');
 
         console.log('⬆️ Uploading to Pinata v3...');
         const response = await fetch('https://uploads.pinata.cloud/v3/files', {
@@ -102,6 +93,7 @@ export async function uploadImageToPinata(imageBlob, config) {
 
         if (!response.ok) {
             const errorText = await response.text();
+            console.error('❌ Pinata API error response:', errorText);
             throw new Error(`Pinata API error: ${response.status} ${errorText}`);
         }
 
@@ -131,16 +123,6 @@ export async function uploadMetadataToPinata(metadata, config) {
         const file = new File([blob], 'metadata.json', { type: 'application/json' });
 
         formData.append('file', file);
-        formData.append('network', 'public');
-
-        const keyvalues = JSON.stringify({
-            keyvalues: {
-                app: 'TrapStarsTraitShop',
-                nft_name: metadata.name || 'TrapStars NFT'
-            }
-        });
-        formData.append('keyvalues', keyvalues);
-        formData.append('name', 'TrapStars NFT Metadata');
 
         console.log('⬆️ Uploading metadata to Pinata v3...');
         const response = await fetch('https://uploads.pinata.cloud/v3/files', {
@@ -153,6 +135,7 @@ export async function uploadMetadataToPinata(metadata, config) {
 
         if (!response.ok) {
             const errorText = await response.text();
+            console.error('❌ Pinata API error response:', errorText);
             throw new Error(`Pinata API error: ${response.status} ${errorText}`);
         }
 
