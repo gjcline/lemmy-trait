@@ -82,27 +82,32 @@ export async function uploadImageToPinata(imageBlob, config) {
         const file = new File([imageBlob], 'nft-image.png', { type: 'image/png' });
         formData.append('file', file);
 
-        console.log('⬆️ Uploading to Pinata v3...');
-        const response = await fetch('https://uploads.pinata.cloud/v3/files', {
+        const edgeFunctionUrl = `${config.supabaseUrl}/functions/v1/upload-image-to-pinata`;
+        console.log('⬆️ Uploading via Edge Function...');
+
+        const response = await fetch(edgeFunctionUrl, {
             method: 'POST',
             headers: {
-                'Authorization': `Bearer ${config.pinataJwt}`
+                'Authorization': `Bearer ${config.supabaseAnonKey}`
             },
             body: formData
         });
 
         if (!response.ok) {
             const errorText = await response.text();
-            console.error('❌ Pinata API error response:', errorText);
-            throw new Error(`Pinata API error: ${response.status} ${errorText}`);
+            console.error('❌ Edge Function error response:', errorText);
+            throw new Error(`Edge Function error: ${response.status} ${errorText}`);
         }
 
         const result = await response.json();
-        const imageUrl = `https://gateway.pinata.cloud/ipfs/${result.data.cid}`;
 
-        console.log('✅ Image uploaded to IPFS:', imageUrl);
-        console.log('📌 IPFS CID:', result.data.cid);
-        return imageUrl;
+        if (!result.success) {
+            throw new Error(result.error || 'Upload failed');
+        }
+
+        console.log('✅ Image uploaded to IPFS:', result.imageUrl);
+        console.log('📌 IPFS CID:', result.cid);
+        return result.imageUrl;
 
     } catch (err) {
         console.error('❌ Pinata upload error:', err);
@@ -121,30 +126,34 @@ export async function uploadMetadataToPinata(metadata, config) {
         const json = JSON.stringify(metadata);
         const blob = new Blob([json], { type: 'application/json' });
         const file = new File([blob], 'metadata.json', { type: 'application/json' });
-
         formData.append('file', file);
 
-        console.log('⬆️ Uploading metadata to Pinata v3...');
-        const response = await fetch('https://uploads.pinata.cloud/v3/files', {
+        const edgeFunctionUrl = `${config.supabaseUrl}/functions/v1/upload-metadata-to-pinata`;
+        console.log('⬆️ Uploading metadata via Edge Function...');
+
+        const response = await fetch(edgeFunctionUrl, {
             method: 'POST',
             headers: {
-                'Authorization': `Bearer ${config.pinataJwt}`
+                'Authorization': `Bearer ${config.supabaseAnonKey}`
             },
             body: formData
         });
 
         if (!response.ok) {
             const errorText = await response.text();
-            console.error('❌ Pinata API error response:', errorText);
-            throw new Error(`Pinata API error: ${response.status} ${errorText}`);
+            console.error('❌ Edge Function error response:', errorText);
+            throw new Error(`Edge Function error: ${response.status} ${errorText}`);
         }
 
         const result = await response.json();
-        const metadataUrl = `https://gateway.pinata.cloud/ipfs/${result.data.cid}`;
 
-        console.log('✅ Metadata uploaded to IPFS:', metadataUrl);
-        console.log('📌 IPFS CID:', result.data.cid);
-        return metadataUrl;
+        if (!result.success) {
+            throw new Error(result.error || 'Upload failed');
+        }
+
+        console.log('✅ Metadata uploaded to IPFS:', result.metadataUrl);
+        console.log('📌 IPFS CID:', result.cid);
+        return result.metadataUrl;
 
     } catch (err) {
         console.error('❌ Metadata upload error:', err);
