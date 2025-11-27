@@ -30,6 +30,7 @@
     "@bundlr-network/client": "^0.5.10",
     "@metaplex-foundation/digital-asset-standard-api": "^2.0.0",
     "@metaplex-foundation/mpl-bubblegum": "^5.0.2",
+    "@metaplex-foundation/mpl-core": "^1.7.0",
     "@metaplex-foundation/umi": "^1.4.1",
     "@metaplex-foundation/umi-bundle-defaults": "^1.4.1",
     "@metaplex-foundation/umi-signer-wallet-adapters": "^1.4.1",

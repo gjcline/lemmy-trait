@@ -9,8 +9,13 @@ import {
     burn,
     updateMetadata
 } from '@metaplex-foundation/mpl-bubblegum';
+import {
+    transferV1,
+    updateV1
+} from '@metaplex-foundation/mpl-core';
 import { fromWeb3JsKeypair, fromWeb3JsPublicKey } from '@metaplex-foundation/umi-web3js-adapters';
 import { walletAdapterIdentity } from '@metaplex-foundation/umi-signer-wallet-adapters';
+import { publicKey as umiPublicKey } from '@metaplex-foundation/umi';
 import Bundlr from '@bundlr-network/client/build/web/bundle';
 
 /**
@@ -205,7 +210,7 @@ export async function getAssetProof(assetId, rpcEndpoint) {
  */
 export async function getAsset(assetId, rpcEndpoint) {
     console.log('🔍 Getting asset data for:', assetId);
-    
+
     try {
         const response = await fetch(rpcEndpoint, {
             method: 'POST',
@@ -219,19 +224,100 @@ export async function getAsset(assetId, rpcEndpoint) {
                 }
             })
         });
-        
+
         const data = await response.json();
-        
+
         if (data.error) {
             throw new Error(`Helius API error: ${data.error.message}`);
         }
-        
+
         console.log('✅ Asset data retrieved');
         return data.result;
-        
+
     } catch (err) {
         console.error('❌ Get asset error:', err);
         throw new Error(`Failed to get asset: ${err.message}`);
+    }
+}
+
+/**
+ * Detect NFT type from asset data
+ */
+export function detectNFTType(asset) {
+    if (asset.interface === 'V1_NFT' ||
+        (asset.ownership && asset.ownership.owner === 'CoREENxT6tW1HoK8ypY1SxRMZTcVPm7R94rH4PZNhX7d')) {
+        console.log('🎯 Detected: Metaplex Core NFT');
+        return 'core';
+    }
+
+    if (asset.compression && asset.compression.compressed) {
+        console.log('🎯 Detected: Compressed NFT');
+        return 'compressed';
+    }
+
+    console.log('🎯 Detected: Standard NFT');
+    return 'standard';
+}
+
+/**
+ * Transfer a Metaplex Core NFT
+ */
+async function transferCoreNFT(assetId, recipientAddress, walletAdapter, config) {
+    console.log('🎯 Transferring Core NFT:', assetId);
+
+    try {
+        const umi = createUmi(config.rpcEndpoint)
+            .use(walletAdapterIdentity(walletAdapter));
+
+        const assetAddress = umiPublicKey(assetId);
+        const newOwner = umiPublicKey(recipientAddress);
+
+        const tx = await transferV1(umi, {
+            asset: assetAddress,
+            newOwner: newOwner
+        }).sendAndConfirm(umi);
+
+        console.log('✅ Core NFT transferred! Signature:', tx.signature);
+        return tx.signature;
+
+    } catch (err) {
+        console.error('❌ Core NFT transfer error:', err);
+        if (err.message && err.message.includes('User rejected')) {
+            throw new Error('User cancelled NFT transfer');
+        }
+        throw new Error(`Failed to transfer Core NFT: ${err.message || err}`);
+    }
+}
+
+/**
+ * Update a Metaplex Core NFT metadata
+ */
+async function updateCoreNFT(assetId, newMetadataUri, config) {
+    console.log('📝 Updating Core NFT:', assetId);
+    console.log('New metadata URI:', newMetadataUri);
+
+    try {
+        const umi = createUmi(config.rpcEndpoint);
+
+        const privateKeyArray = new Uint8Array(config.updateAuthorityPrivateKey);
+        const web3Keypair = Keypair.fromSecretKey(privateKeyArray);
+        const umiKeypair = fromWeb3JsKeypair(web3Keypair);
+
+        umi.identity = umiKeypair;
+
+        const assetAddress = umiPublicKey(assetId);
+
+        const tx = await updateV1(umi, {
+            asset: assetAddress,
+            newUri: newMetadataUri
+        }).sendAndConfirm(umi);
+
+        console.log('✅ Core NFT updated! Signature:', tx.signature);
+        return tx.signature;
+
+    } catch (err) {
+        console.error('❌ Core NFT update error:', err);
+        throw new Error(`Failed to update Core NFT: ${err.message || err}`);
     }
 }
 
@@ -256,7 +342,7 @@ async function fetchAssetProof(assetId, config) {
 }
 
 /**
- * Transfer a compressed NFT using Metaplex Bubblegum
+ * Transfer an NFT (auto-detects type: Core, Compressed, or Standard)
  * @param {string} assetId - The NFT asset ID
  * @param {string} recipientAddress - The recipient wallet address
  * @param {Object} walletAdapter - The wallet adapter
@@ -264,45 +350,52 @@ async function fetchAssetProof(assetId, config) {
  * @returns {Promise<string>} - Returns transaction signature
  */
 export async function promptNFTSend(assetId, recipientAddress, walletAdapter, config) {
-    console.log('📦 Transferring compressed NFT:', assetId);
+    console.log('📦 Transferring NFT:', assetId);
     console.log('🎯 To address:', recipientAddress);
     console.log('🔑 From wallet:', walletAdapter.publicKey.toString());
 
     try {
-        // Fetch asset proof from Helius DAS API
-        console.log('📋 Fetching asset proof...');
-        const proof = await fetchAssetProof(assetId, config);
-        console.log('✅ Asset proof retrieved');
+        const asset = await getAsset(assetId, config.rpcEndpoint);
+        const nftType = detectNFTType(asset);
 
-        // Initialize UMI with wallet adapter
-        const umi = createUmi(config.rpcEndpoint)
-            .use(mplBubblegum())
-            .use(walletAdapterIdentity(walletAdapter));
+        if (nftType === 'core') {
+            return await transferCoreNFT(assetId, recipientAddress, walletAdapter, config);
+        }
 
-        // Build transfer instruction
-        console.log('🔨 Building transfer instruction...');
-        const transferIx = transfer(umi, {
-            leafOwner: fromWeb3JsPublicKey(walletAdapter.publicKey),
-            newLeafOwner: fromWeb3JsPublicKey(new PublicKey(recipientAddress)),
-            merkleTree: fromWeb3JsPublicKey(new PublicKey(proof.tree_id)),
-            root: Array.from(Buffer.from(proof.root.trim(), 'base64')),
-            dataHash: Array.from(Buffer.from(proof.data_hash.trim(), 'base64')),
-            creatorHash: Array.from(Buffer.from(proof.creator_hash.trim(), 'base64')),
-            nonce: proof.leaf_id,
-            index: proof.leaf_id,
-            proof: proof.proof.map(p => ({
-                pubkey: fromWeb3JsPublicKey(new PublicKey(p)),
-                isWritable: false,
-                isSigner: false
-            }))
-        });
+        if (nftType === 'compressed') {
+            console.log('📋 Fetching asset proof...');
+            const proof = await fetchAssetProof(assetId, config);
+            console.log('✅ Asset proof retrieved');
 
-        // Send transaction through Phantom
-        console.log('📤 Sending transfer transaction...');
-        const signature = await transferIx.sendAndConfirm(umi);
+            const umi = createUmi(config.rpcEndpoint)
+                .use(mplBubblegum())
+                .use(walletAdapterIdentity(walletAdapter));
 
-        console.log('✅ NFT transferred! Signature:', signature);
-        return signature;
+            console.log('🔨 Building transfer instruction...');
+            const transferIx = transfer(umi, {
+                leafOwner: fromWeb3JsPublicKey(walletAdapter.publicKey),
+                newLeafOwner: fromWeb3JsPublicKey(new PublicKey(recipientAddress)),
+                merkleTree: fromWeb3JsPublicKey(new PublicKey(proof.tree_id)),
+                root: Array.from(Buffer.from(proof.root.trim(), 'base64')),
+                dataHash: Array.from(Buffer.from(proof.data_hash.trim(), 'base64')),
+                creatorHash: Array.from(Buffer.from(proof.creator_hash.trim(), 'base64')),
+                nonce: proof.leaf_id,
+                index: proof.leaf_id,
+                proof: proof.proof.map(p => ({
+                    pubkey: fromWeb3JsPublicKey(new PublicKey(p)),
+                    isWritable: false,
+                    isSigner: false
+                }))
+            });
+
+            console.log('📤 Sending transfer transaction...');
+            const signature = await transferIx.sendAndConfirm(umi);
+
+            console.log('✅ NFT transferred! Signature:', signature);
+            return signature;
+        }
+
+        throw new Error('Standard NFT transfers not yet implemented');
 
     } catch (err) {
         console.error('❌ NFT transfer error:', err);
@@ -314,103 +407,99 @@ export async function promptNFTSend(assetId, recipientAddress, walletAdapter, co
 }
 
 /**
- * Update compressed NFT metadata
+ * Update NFT metadata (auto-detects type: Core, Compressed, or Standard)
  */
 export async function updateCompressedNFT(assetId, newMetadataUri, config) {
-    console.log('📝 Updating compressed NFT:', assetId);
+    console.log('📝 Updating NFT:', assetId);
     console.log('New metadata URI:', newMetadataUri);
-    
+
     try {
-        // Get asset and proof
-        const [asset, proof] = await Promise.all([
-            getAsset(assetId, config.rpcEndpoint),
-            getAssetProof(assetId, config.rpcEndpoint)
-        ]);
-        
-        // Validate asset is compressed
-        if (!asset.compression || !asset.compression.compressed) {
-            throw new Error('Asset is not a compressed NFT. Only compressed NFTs are supported.');
+        const asset = await getAsset(assetId, config.rpcEndpoint);
+        const nftType = detectNFTType(asset);
+
+        if (nftType === 'core') {
+            return await updateCoreNFT(assetId, newMetadataUri, config);
         }
-        
-        // Validate update authority
-        const updateAuthority = asset.authorities?.find(a => a.scopes?.includes('full'))?.address;
-        if (updateAuthority && updateAuthority !== config.updateAuthority) {
-            throw new Error('Update authority mismatch. Cannot update this NFT.');
+
+        if (nftType === 'compressed') {
+            const proof = await getAssetProof(assetId, config.rpcEndpoint);
+
+            const updateAuthority = asset.authorities?.find(a => a.scopes?.includes('full'))?.address;
+            if (updateAuthority && updateAuthority !== config.updateAuthority) {
+                throw new Error('Update authority mismatch. Cannot update this NFT.');
+            }
+
+            const umi = createUmi(config.rpcEndpoint)
+                .use(mplBubblegum());
+
+            const privateKeyArray = new Uint8Array(config.updateAuthorityPrivateKey);
+            const web3Keypair = Keypair.fromSecretKey(privateKeyArray);
+            const umiKeypair = fromWeb3JsKeypair(web3Keypair);
+
+            umi.identity = umiKeypair;
+
+            const treeAddress = fromWeb3JsPublicKey(new PublicKey(asset.compression.tree));
+
+            const updateIx = updateMetadata(umi, {
+                merkleTree: treeAddress,
+                root: Array.from(Buffer.from(proof.root, 'base64')),
+                nonce: asset.compression.leaf_id,
+                index: asset.compression.leaf_id,
+                currentMetadata: {
+                    name: asset.content.metadata.name,
+                    symbol: asset.content.metadata.symbol || '',
+                    uri: asset.content.json_uri,
+                    sellerFeeBasisPoints: asset.royalty.basis_points,
+                    creators: asset.creators?.map(c => ({
+                        address: fromWeb3JsPublicKey(new PublicKey(c.address)),
+                        verified: c.verified,
+                        share: c.share
+                    })) || [],
+                    collection: asset.grouping?.find(g => g.group_key === 'collection')
+                        ? {
+                            key: fromWeb3JsPublicKey(new PublicKey(
+                                asset.grouping.find(g => g.group_key === 'collection').group_value
+                            )),
+                            verified: true
+                        }
+                        : null,
+                    uses: null
+                },
+                updateArgs: {
+                    name: asset.content.metadata.name,
+                    symbol: asset.content.metadata.symbol || '',
+                    uri: newMetadataUri,
+                    sellerFeeBasisPoints: asset.royalty.basis_points,
+                    creators: asset.creators?.map(c => ({
+                        address: fromWeb3JsPublicKey(new PublicKey(c.address)),
+                        verified: c.verified,
+                        share: c.share
+                    })) || [],
+                    collection: asset.grouping?.find(g => g.group_key === 'collection')
+                        ? {
+                            key: fromWeb3JsPublicKey(new PublicKey(
+                                asset.grouping.find(g => g.group_key === 'collection').group_value
+                            )),
+                            verified: true
+                        }
+                        : null,
+                    uses: null
+                },
+                proof: proof.proof.map(p => ({
+                    pubkey: fromWeb3JsPublicKey(new PublicKey(p)),
+                    isWritable: false,
+                    isSigner: false
+                }))
+            });
+
+            console.log('📤 Sending update transaction...');
+            const signature = await updateIx.sendAndConfirm(umi);
+
+            console.log('✅ NFT updated! Signature:', signature);
+            return signature;
         }
-        
-        // Initialize UMI
-        const umi = createUmi(config.rpcEndpoint)
-            .use(mplBubblegum());
-        
-        // Convert private key to Keypair and set identity
-        const privateKeyArray = new Uint8Array(config.updateAuthorityPrivateKey);
-        const web3Keypair = Keypair.fromSecretKey(privateKeyArray);
-        const umiKeypair = fromWeb3JsKeypair(web3Keypair);
-        
-        // Set identity using keypair directly
-        umi.identity = umiKeypair;
-        
-        // Prepare update instruction
-        const treeAddress = fromWeb3JsPublicKey(new PublicKey(asset.compression.tree));
-        
-        const updateIx = updateMetadata(umi, {
-            merkleTree: treeAddress,
-            root: Array.from(Buffer.from(proof.root, 'base64')),
-            nonce: asset.compression.leaf_id,
-            index: asset.compression.leaf_id,
-            currentMetadata: {
-                name: asset.content.metadata.name,
-                symbol: asset.content.metadata.symbol || '',
-                uri: asset.content.json_uri,
-                sellerFeeBasisPoints: asset.royalty.basis_points,
-                creators: asset.creators?.map(c => ({
-                    address: fromWeb3JsPublicKey(new PublicKey(c.address)),
-                    verified: c.verified,
-                    share: c.share
-                })) || [],
-                collection: asset.grouping?.find(g => g.group_key === 'collection')
-                    ? {
-                        key: fromWeb3JsPublicKey(new PublicKey(
-                            asset.grouping.find(g => g.group_key === 'collection').group_value
-                        )),
-                        verified: true
-                    }
-                    : null,
-                uses: null
-            },
-            updateArgs: {
-                name: asset.content.metadata.name,
-                symbol: asset.content.metadata.symbol || '',
-                uri: newMetadataUri,
-                sellerFeeBasisPoints: asset.royalty.basis_points,
-                creators: asset.creators?.map(c => ({
-                    address: fromWeb3JsPublicKey(new PublicKey(c.address)),
-                    verified: c.verified,
-                    share: c.share
-                })) || [],
-                collection: asset.grouping?.find(g => g.group_key === 'collection')
-                    ? {
-                        key: fromWeb3JsPublicKey(new PublicKey(
-                            asset.grouping.find(g => g.group_key === 'collection').group_value
-                        )),
-                        verified: true
-                    }
-                    : null,
-                uses: null
-            },
-            proof: proof.proof.map(p => ({
-                pubkey: fromWeb3JsPublicKey(new PublicKey(p)),
-                isWritable: false,
-                isSigner: false
-            }))
-        });
-        
-        // Send transaction
-        console.log('📤 Sending update transaction...');
-        const signature = await updateIx.sendAndConfirm(umi);
-        
-        console.log('✅ NFT updated! Signature:', signature);
-        return signature;
+
+        throw new Error('Standard NFT updates not yet implemented');
         
     } catch (err) {
         console.error('❌ Update error:', err);
