@@ -1,5 +1,5 @@
 // Trap Stars Trait Shop - Blockchain Integration
-// Handles Bundlr uploads and Metaplex Bubblegum operations
+// Handles Pinata IPFS uploads and Metaplex Bubblegum operations
 
 import { Connection, Keypair, PublicKey, Transaction, SystemProgram, LAMPORTS_PER_SOL } from '@solana/web3.js';
 import { createUmi } from '@metaplex-foundation/umi-bundle-defaults';
@@ -16,7 +16,6 @@ import {
 import { fromWeb3JsKeypair, fromWeb3JsPublicKey } from '@metaplex-foundation/umi-web3js-adapters';
 import { walletAdapterIdentity } from '@metaplex-foundation/umi-signer-wallet-adapters';
 import { publicKey as umiPublicKey } from '@metaplex-foundation/umi';
-import Bundlr from '@bundlr-network/client/build/web/bundle';
 
 /**
  * Transfer SOL from user's wallet to a recipient
@@ -73,98 +72,100 @@ export async function getWalletBalance(publicKey, config) {
 }
 
 /**
- * Upload image to Arweave via Bundlr
+ * Upload image to IPFS via Pinata
  */
-export async function uploadImageToBundlr(imageBlob, config) {
-    console.log('📤 Uploading image to Arweave via Bundlr...');
+export async function uploadImageToPinata(imageBlob, config) {
+    console.log('📤 Uploading image to IPFS via Pinata...');
 
     try {
-        // Convert private key array to Uint8Array
-        const privateKeyArray = new Uint8Array(config.updateAuthorityPrivateKey);
+        const formData = new FormData();
+        formData.append('file', imageBlob, 'nft-image.png');
 
-        // Initialize Bundlr
-        const bundlr = new Bundlr(
-            'https://node1.bundlr.network',
-            'solana',
-            privateKeyArray,
-            {
-                providerUrl: config.rpcEndpoint
+        const metadata = JSON.stringify({
+            name: 'TrapStars NFT Image',
+            keyvalues: {
+                app: 'TrapStarsTraitShop'
             }
-        );
+        });
+        formData.append('pinataMetadata', metadata);
 
-        console.log('✅ Bundlr initialized');
+        const options = JSON.stringify({
+            cidVersion: 1
+        });
+        formData.append('pinataOptions', options);
 
-        // Get upload cost
-        const imageBuffer = await imageBlob.arrayBuffer();
-        const price = await bundlr.getPrice(imageBuffer.byteLength);
-        const priceInSOL = price.toString() / 1e9;
-        console.log(`💵 Upload cost: ${priceInSOL} SOL`);
+        console.log('⬆️ Uploading to Pinata...');
+        const response = await fetch('https://api.pinata.cloud/pinning/pinFileToIPFS', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${config.pinataJwt}`
+            },
+            body: formData
+        });
 
-        // Check balance (but don't fund automatically to avoid deprecated RPC call)
-        let balance;
-        try {
-            balance = await bundlr.getLoadedBalance();
-            const balanceInSOL = balance.toString() / 1e9;
-            console.log(`💰 Bundlr balance: ${balanceInSOL} SOL`);
-
-            if (balance.lt(price)) {
-                throw new Error(`Insufficient Bundlr balance. Please ensure the update authority wallet has sufficient balance. Required: ${priceInSOL} SOL`);
-            }
-        } catch (balanceErr) {
-            console.warn('⚠️ Could not check Bundlr balance, attempting upload anyway:', balanceErr.message);
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Pinata API error: ${response.status} ${errorText}`);
         }
 
-        // Upload image
-        console.log('⬆️ Uploading image...');
-        const tags = [
-            { name: 'Content-Type', value: 'image/png' },
-            { name: 'App-Name', value: 'TrapStarsTraitShop' }
-        ];
+        const result = await response.json();
+        const imageUrl = `https://gateway.pinata.cloud/ipfs/${result.IpfsHash}`;
 
-        const tx = await bundlr.upload(imageBuffer, { tags });
-        const imageUrl = `https://arweave.net/${tx.id}`;
-
-        console.log('✅ Image uploaded:', imageUrl);
+        console.log('✅ Image uploaded to IPFS:', imageUrl);
+        console.log('📌 IPFS CID:', result.IpfsHash);
         return imageUrl;
 
     } catch (err) {
-        console.error('❌ Bundlr upload error:', err);
+        console.error('❌ Pinata upload error:', err);
         throw new Error(`Failed to upload image: ${err.message}`);
     }
 }
 
 /**
- * Upload metadata JSON to Arweave via Bundlr
+ * Upload metadata JSON to IPFS via Pinata
  */
-export async function uploadMetadataToBundlr(metadata, config) {
-    console.log('📤 Uploading metadata to Arweave via Bundlr...');
-    
+export async function uploadMetadataToPinata(metadata, config) {
+    console.log('📤 Uploading metadata to IPFS via Pinata...');
+
     try {
-        const privateKeyArray = new Uint8Array(config.updateAuthorityPrivateKey);
-        
-        const bundlr = new Bundlr(
-            'https://node1.bundlr.network',
-            'solana',
-            privateKeyArray,
-            {
-                providerUrl: config.rpcEndpoint
+        const pinataMetadata = {
+            name: 'TrapStars NFT Metadata',
+            keyvalues: {
+                app: 'TrapStarsTraitShop',
+                nft_name: metadata.name || 'TrapStars NFT'
             }
-        );
-        
-        const metadataString = JSON.stringify(metadata);
-        const metadataBuffer = Buffer.from(metadataString);
-        
-        const tags = [
-            { name: 'Content-Type', value: 'application/json' },
-            { name: 'App-Name', value: 'TrapStarsTraitShop' }
-        ];
-        
-        const tx = await bundlr.upload(metadataBuffer, { tags });
-        const metadataUrl = `https://arweave.net/${tx.id}`;
-        
-        console.log('✅ Metadata uploaded:', metadataUrl);
+        };
+
+        const data = {
+            pinataContent: metadata,
+            pinataMetadata: pinataMetadata,
+            pinataOptions: {
+                cidVersion: 1
+            }
+        };
+
+        console.log('⬆️ Uploading metadata to Pinata...');
+        const response = await fetch('https://api.pinata.cloud/pinning/pinJSONToIPFS', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${config.pinataJwt}`
+            },
+            body: JSON.stringify(data)
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Pinata API error: ${response.status} ${errorText}`);
+        }
+
+        const result = await response.json();
+        const metadataUrl = `https://gateway.pinata.cloud/ipfs/${result.IpfsHash}`;
+
+        console.log('✅ Metadata uploaded to IPFS:', metadataUrl);
+        console.log('📌 IPFS CID:', result.IpfsHash);
         return metadataUrl;
-        
+
     } catch (err) {
         console.error('❌ Metadata upload error:', err);
         throw new Error(`Failed to upload metadata: ${err.message}`);

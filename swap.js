@@ -1,7 +1,7 @@
 // Trap Stars Burn & Swap Module
 // Handles the multi-step swap flow for burning one NFT to extract a trait for another
 
-import { promptNFTSend, updateCompressedNFT, uploadImageToBundlr, uploadMetadataToBundlr, transferSOL } from './blockchain.js';
+import { promptNFTSend, updateCompressedNFT, uploadImageToPinata, uploadMetadataToPinata, transferSOL } from './blockchain.js';
 
 // Supabase client setup (optional)
 let supabase = null;
@@ -196,13 +196,13 @@ export async function executeBurnAndSwap(state, config, imageGeneratorFn, showPr
         const imageBlob = await imageGeneratorFn(newAttributes);
         console.log('✅ Image generated');
 
-        // Step 6: Upload new image to Arweave
-        showProgressFn('Uploading image to Arweave...', 'This may take a moment');
-        const imageUrl = await uploadImageToBundlr(imageBlob, config);
+        // Step 6: Upload new image to IPFS
+        showProgressFn('Uploading image to IPFS...', 'This may take a moment');
+        const imageUrl = await uploadImageToPinata(imageBlob, config);
         console.log('✅ Image uploaded:', imageUrl);
 
         // Step 7: Create and upload new metadata
-        showProgressFn('Uploading metadata to Arweave...', '');
+        showProgressFn('Uploading metadata to IPFS...', '');
         const newMetadata = {
             name: recipientNFT.name,
             symbol: 'TRAP',
@@ -218,7 +218,7 @@ export async function executeBurnAndSwap(state, config, imageGeneratorFn, showPr
             }
         };
 
-        const metadataUrl = await uploadMetadataToBundlr(newMetadata, config);
+        const metadataUrl = await uploadMetadataToPinata(newMetadata, config);
         console.log('✅ Metadata uploaded:', metadataUrl);
 
         await updateSwapTransaction(transactionId, {

@@ -78,7 +78,8 @@ async function init() {
                 serviceFeeSOL: import.meta.env.VITE_SERVICE_FEE_SOL || '0.025',
                 reimbursementSOL: import.meta.env.VITE_REIMBURSEMENT_SOL || '0.015',
                 supabaseUrl: import.meta.env.VITE_SUPABASE_URL,
-                supabaseAnonKey: import.meta.env.VITE_SUPABASE_ANON_KEY
+                supabaseAnonKey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+                pinataJwt: import.meta.env.VITE_PINATA_JWT
             };
             console.log('✅ Configuration loaded from environment variables');
             console.log('📋 Layer order:', config.layerOrder);
