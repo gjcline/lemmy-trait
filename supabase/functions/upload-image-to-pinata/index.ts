@@ -20,6 +20,8 @@ Deno.serve(async (req: Request) => {
       throw new Error('PINATA_JWT environment variable not configured');
     }
 
+    const gatewayDomain = Deno.env.get('PINATA_GATEWAY_DOMAIN') || 'pink-gigantic-mackerel-670.mypinata.cloud';
+
     const formData = await req.formData();
     const file = formData.get('file');
 
@@ -56,10 +58,11 @@ Deno.serve(async (req: Request) => {
     }
 
     const result = await pinataResponse.json();
-    const imageUrl = `https://gateway.pinata.cloud/ipfs/${result.data.cid}`;
+    const imageUrl = `https://${gatewayDomain}/ipfs/${result.data.cid}`;
 
     console.log('✅ Image uploaded to IPFS:', imageUrl);
     console.log('📌 IPFS CID:', result.data.cid);
+    console.log('🌐 Gateway:', gatewayDomain);
 
     return new Response(
       JSON.stringify({
