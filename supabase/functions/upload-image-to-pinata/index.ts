@@ -20,7 +20,7 @@ Deno.serve(async (req: Request) => {
       throw new Error('PINATA_JWT environment variable not configured');
     }
 
-    const gatewayDomain = Deno.env.get('PINATA_GATEWAY_DOMAIN') || 'gateway.pinata.cloud';
+    const gatewayDomain = 'gateway.pinata.cloud';
 
     const formData = await req.formData();
     const file = formData.get('file');
