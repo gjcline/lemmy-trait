@@ -120,10 +120,12 @@ export async function uploadImageToPinata(imageBlob, config) {
  */
 export async function uploadMetadataToPinata(metadata, config) {
     console.log('📤 Uploading metadata to IPFS via Pinata...');
+    console.log('📋 Metadata structure:', JSON.stringify(metadata, null, 2));
 
     try {
         const formData = new FormData();
         const json = JSON.stringify(metadata);
+        console.log('📄 JSON string length:', json.length, 'bytes');
         const blob = new Blob([json], { type: 'application/json' });
         const file = new File([blob], 'metadata.json', { type: 'application/json' });
         formData.append('file', file);
@@ -146,6 +148,7 @@ export async function uploadMetadataToPinata(metadata, config) {
         }
 
         const result = await response.json();
+        console.log('📦 Upload result:', result);
 
         if (!result.success) {
             throw new Error(result.error || 'Upload failed');
@@ -153,6 +156,11 @@ export async function uploadMetadataToPinata(metadata, config) {
 
         console.log('✅ Metadata uploaded to IPFS:', result.metadataUrl);
         console.log('📌 IPFS CID:', result.cid);
+
+        // Try alternative gateway
+        const alternativeUrl = `https://${result.cid}.ipfs.dweb.link`;
+        console.log('🔗 Alternative gateway URL:', alternativeUrl);
+
         return result.metadataUrl;
 
     } catch (err) {

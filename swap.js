@@ -117,6 +117,15 @@ export async function executeBurnAndSwap(state, config, imageGeneratorFn, showPr
     let transactionId = null;
 
     try {
+        // Validate NFT data
+        console.log('🔍 Validating recipient NFT data...');
+        console.log('Recipient NFT:', recipientNFT);
+        console.log('Recipient attributes:', recipientNFT.attributes);
+
+        if (!recipientNFT.attributes || recipientNFT.attributes.length === 0) {
+            throw new Error('Recipient NFT has no attributes! Cannot perform swap.');
+        }
+
         // Step 1: Create transaction record
         showProgressFn('Creating transaction record...', '');
         const transaction = await createSwapTransaction(
