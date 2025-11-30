@@ -1,7 +1,7 @@
 // Trap Stars Burn & Swap Module
 // Handles the multi-step swap flow for burning one NFT to extract a trait for another
 
-import { promptNFTSend, updateCompressedNFT, uploadImageToPinata, uploadMetadataToPinata, transferSOL } from './blockchain.js';
+import { promptNFTSend, updateCompressedNFT, uploadImageToArweave, uploadMetadataToArweave, transferSOL } from './blockchain.js';
 
 // Supabase client setup (optional)
 let supabase = null;
@@ -207,7 +207,7 @@ export async function executeBurnAndSwap(state, config, imageGeneratorFn, showPr
 
         // Step 6: Upload new image to IPFS
         showProgressFn('Uploading image to IPFS...', 'This may take a moment');
-        const imageUrl = await uploadImageToPinata(imageBlob, config);
+        const imageUrl = await uploadImageToArweave(imageBlob, config);
         console.log('✅ Image uploaded:', imageUrl);
 
         // Step 7: Create and upload new metadata
@@ -227,7 +227,7 @@ export async function executeBurnAndSwap(state, config, imageGeneratorFn, showPr
             }
         };
 
-        const metadataUrl = await uploadMetadataToPinata(newMetadata, config);
+        const metadataUrl = await uploadMetadataToArweave(newMetadata, config);
         console.log('✅ Metadata uploaded:', metadataUrl);
 
         await updateSwapTransaction(transactionId, {

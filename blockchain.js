@@ -74,23 +74,32 @@ export async function getWalletBalance(publicKey, config) {
 /**
  * Upload image to IPFS via Pinata
  */
-export async function uploadImageToPinata(imageBlob, config) {
-    console.log('📤 Uploading image to IPFS via Pinata...');
+export async function uploadImageToArweave(imageBlob, config) {
+    console.log('📤 Uploading image to Arweave via Irys...');
 
     try {
-        const formData = new FormData();
-        const file = new File([imageBlob], 'nft-image.png', { type: 'image/png' });
-        formData.append('file', file);
+        const reader = new FileReader();
+        const base64Promise = new Promise((resolve, reject) => {
+            reader.onloadend = () => resolve(reader.result);
+            reader.onerror = reject;
+            reader.readAsDataURL(imageBlob);
+        });
 
-        const edgeFunctionUrl = `${config.supabaseUrl}/functions/v1/upload-image-to-pinata`;
+        const base64Data = await base64Promise;
+
+        const edgeFunctionUrl = `${config.supabaseUrl}/functions/v1/upload-to-arweave`;
         console.log('⬆️ Uploading via Edge Function...');
 
         const response = await fetch(edgeFunctionUrl, {
             method: 'POST',
             headers: {
-                'Authorization': `Bearer ${config.supabaseAnonKey}`
+                'Authorization': `Bearer ${config.supabaseAnonKey}`,
+                'Content-Type': 'application/json'
             },
-            body: formData
+            body: JSON.stringify({
+                data: base64Data,
+                type: 'image'
+            })
         });
 
         if (!response.ok) {
@@ -105,40 +114,40 @@ export async function uploadImageToPinata(imageBlob, config) {
             throw new Error(result.error || 'Upload failed');
         }
 
-        console.log('✅ Image uploaded to IPFS:', result.imageUrl);
-        console.log('📌 IPFS CID:', result.cid);
-        return result.imageUrl;
+        console.log('✅ Image uploaded to Arweave:', result.url);
+        console.log('📌 Transaction ID:', result.id);
+        return result.url;
 
     } catch (err) {
-        console.error('❌ Pinata upload error:', err);
+        console.error('❌ Arweave upload error:', err);
         throw new Error(`Failed to upload image: ${err.message}`);
     }
 }
 
 /**
- * Upload metadata JSON to IPFS via Pinata
+ * Upload metadata JSON to Arweave via Irys
  */
-export async function uploadMetadataToPinata(metadata, config) {
-    console.log('📤 Uploading metadata to IPFS via Pinata...');
+export async function uploadMetadataToArweave(metadata, config) {
+    console.log('📤 Uploading metadata to Arweave via Irys...');
     console.log('📋 Metadata structure:', JSON.stringify(metadata, null, 2));
 
     try {
-        const formData = new FormData();
         const json = JSON.stringify(metadata);
         console.log('📄 JSON string length:', json.length, 'bytes');
-        const blob = new Blob([json], { type: 'application/json' });
-        const file = new File([blob], 'metadata.json', { type: 'application/json' });
-        formData.append('file', file);
 
-        const edgeFunctionUrl = `${config.supabaseUrl}/functions/v1/upload-metadata-to-pinata`;
+        const edgeFunctionUrl = `${config.supabaseUrl}/functions/v1/upload-to-arweave`;
         console.log('⬆️ Uploading metadata via Edge Function...');
 
         const response = await fetch(edgeFunctionUrl, {
             method: 'POST',
             headers: {
-                'Authorization': `Bearer ${config.supabaseAnonKey}`
+                'Authorization': `Bearer ${config.supabaseAnonKey}`,
+                'Content-Type': 'application/json'
             },
-            body: formData
+            body: JSON.stringify({
+                data: metadata,
+                type: 'metadata'
+            })
         });
 
         if (!response.ok) {
@@ -154,14 +163,10 @@ export async function uploadMetadataToPinata(metadata, config) {
             throw new Error(result.error || 'Upload failed');
         }
 
-        console.log('✅ Metadata uploaded to IPFS:', result.metadataUrl);
-        console.log('📌 IPFS CID:', result.cid);
+        console.log('✅ Metadata uploaded to Arweave:', result.url);
+        console.log('📌 Transaction ID:', result.id);
 
-        // Try alternative gateway
-        const alternativeUrl = `https://${result.cid}.ipfs.dweb.link`;
-        console.log('🔗 Alternative gateway URL:', alternativeUrl);
-
-        return result.metadataUrl;
+        return result.url;
 
     } catch (err) {
         console.error('❌ Metadata upload error:', err);
