@@ -1,11 +1,12 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import Irys from "npm:@irys/sdk@0.2.10";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
 };
+
+const NFT_STORAGE_API = 'https://api.nft.storage/upload';
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
@@ -26,68 +27,67 @@ Deno.serve(async (req: Request) => {
       throw new Error('Invalid type. Must be "image" or "metadata"');
     }
 
-    const updateAuthorityKey = Deno.env.get('UPDATE_AUTHORITY_PRIVATE_KEY');
+    const apiKey = Deno.env.get('NFT_STORAGE_API_KEY');
 
-    if (!updateAuthorityKey) {
-      throw new Error('UPDATE_AUTHORITY_PRIVATE_KEY environment variable not configured');
+    if (!apiKey) {
+      throw new Error('NFT_STORAGE_API_KEY environment variable not configured');
     }
 
-    console.log(`📤 Initializing Irys client for ${type} upload...`);
+    console.log(`📤 Preparing ${type} upload to NFT.Storage...`);
 
-    const keyArray = JSON.parse(updateAuthorityKey);
-
-    const irys = new Irys({
-      url: "https://node2.irys.xyz",
-      token: "solana",
-      key: keyArray,
-    });
-
-    console.log(`💰 Irys wallet address: ${irys.address}`);
-
-    let uploadData: Uint8Array;
+    let uploadBlob: Blob;
     let contentType: string;
-    const tags = [
-      { name: "App-Name", value: "TrapStars" },
-      { name: "App-Version", value: "1.0" }
-    ];
 
     if (type === 'image') {
       console.log('🖼️ Processing image data...');
       const base64Data = data.includes(',') ? data.split(',')[1] : data;
-      uploadData = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
+      const bytes = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
+      uploadBlob = new Blob([bytes], { type: 'image/png' });
       contentType = 'image/png';
-      console.log(`📦 Image size: ${uploadData.length} bytes`);
+      console.log(`📦 Image blob size: ${uploadBlob.size} bytes`);
     } else if (type === 'metadata') {
       console.log('📋 Processing metadata JSON...');
       const jsonString = JSON.stringify(data);
-      const encoder = new TextEncoder();
-      uploadData = encoder.encode(jsonString);
+      uploadBlob = new Blob([jsonString], { type: 'application/json' });
       contentType = 'application/json';
-      console.log(`📦 Metadata size: ${uploadData.length} bytes`);
+      console.log(`📦 Metadata blob size: ${uploadBlob.size} bytes`);
     } else {
       throw new Error('Invalid upload type');
     }
 
-    tags.push({ name: "Content-Type", value: contentType });
+    console.log(`⬆️ Uploading ${type} to NFT.Storage (${uploadBlob.size} bytes)...`);
 
-    console.log(`⬆️ Uploading ${type} to Arweave via Irys (${uploadData.length} bytes)...`);
-    console.log(`📊 Upload data type: ${uploadData.constructor.name}`);
-    const receipt = await irys.upload(uploadData, { tags });
+    const uploadResponse = await fetch(NFT_STORAGE_API, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': contentType,
+      },
+      body: uploadBlob,
+    });
 
-    const url = `https://gateway.irys.xyz/${receipt.id}`;
+    if (!uploadResponse.ok) {
+      const errorText = await uploadResponse.text();
+      throw new Error(`NFT.Storage upload failed: ${uploadResponse.status} - ${errorText}`);
+    }
 
-    console.log(`✅ ${type} uploaded successfully!`);
-    console.log(`📌 Transaction ID: ${receipt.id}`);
-    console.log(`🔗 URL: ${url}`);
-    console.log(`⏰ Timestamp: ${receipt.timestamp}`);
+    const result = await uploadResponse.json();
+
+    const cid = result.value.cid;
+    const url = `https://nftstorage.link/ipfs/${cid}`;
+
+    console.log(`✅ ${type} uploaded successfully to IPFS!`);
+    console.log(`📍 CID: ${cid}`);
+    console.log(`🔗 Gateway URL: ${url}`);
 
     return new Response(
       JSON.stringify({
         success: true,
         url,
-        id: receipt.id,
-        timestamp: receipt.timestamp,
-        size: uploadData.length
+        cid,
+        gateway: url,
+        ipfsUri: `ipfs://${cid}`,
+        size: uploadBlob.size
       }),
       {
         headers: {
@@ -99,9 +99,8 @@ Deno.serve(async (req: Request) => {
     );
 
   } catch (error) {
-    console.error('❌ Arweave upload error:', error);
+    console.error('❌ NFT.Storage upload error:', error);
     console.error('Error details:', error.message);
-    console.error('Error stack:', error.stack);
 
     return new Response(
       JSON.stringify({
