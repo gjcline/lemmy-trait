@@ -56,22 +56,24 @@ Deno.serve(async (req: Request) => {
     }
 
     console.log(`⬆️ Uploading ${type} to NFT.Storage (${uploadBlob.size} bytes)...`);
+    console.log(`🔑 API Key loaded: ${apiKey.substring(0, 10)}...`);
 
     const uploadResponse = await fetch(NFT_STORAGE_API, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': contentType,
       },
       body: uploadBlob,
     });
 
     if (!uploadResponse.ok) {
       const errorText = await uploadResponse.text();
+      console.error('❌ NFT.Storage error:', errorText);
       throw new Error(`NFT.Storage upload failed: ${uploadResponse.status} - ${errorText}`);
     }
 
     const result = await uploadResponse.json();
+    console.log('📦 NFT.Storage response:', result);
 
     const cid = result.value.cid;
     const url = `https://nftstorage.link/ipfs/${cid}`;
