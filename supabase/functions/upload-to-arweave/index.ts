@@ -6,6 +6,8 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
 };
 
+const STORACHA_UPLOAD_URL = 'https://up.storacha.network/upload';
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response(null, {
@@ -25,67 +27,65 @@ Deno.serve(async (req: Request) => {
       throw new Error('Invalid type. Must be "image" or "metadata"');
     }
 
-    const apiKey = Deno.env.get('NFT_STORAGE_API_KEY');
+    const didKey = Deno.env.get('STORACHA_DID_KEY');
 
-    if (!apiKey) {
-      throw new Error('NFT_STORAGE_API_KEY environment variable not configured');
+    if (!didKey) {
+      throw new Error('STORACHA_DID_KEY not configured in environment');
     }
 
-    console.log(`📤 Preparing ${type} upload to NFT.Storage...`);
-    console.log(`🔑 API Key loaded: ${apiKey.substring(0, 10)}...`);
+    console.log(`🔑 Using DID: ${didKey.substring(0, 25)}...`);
 
-    let uploadBlob: Blob;
-    let filename: string;
+    let uploadData: Uint8Array;
+    let contentType: string;
 
     if (type === 'image') {
       console.log('🖼️ Processing image data...');
       const base64Data = data.includes(',') ? data.split(',')[1] : data;
-      const bytes = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
-      uploadBlob = new Blob([bytes], { type: 'image/png' });
-      filename = 'image.png';
-      console.log(`📦 Image blob size: ${uploadBlob.size} bytes`);
+      uploadData = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
+      contentType = 'image/png';
+      console.log(`📦 Image size: ${uploadData.length} bytes`);
     } else if (type === 'metadata') {
       console.log('📋 Processing metadata JSON...');
       const jsonString = JSON.stringify(data);
-      uploadBlob = new Blob([jsonString], { type: 'application/json' });
-      filename = 'metadata.json';
-      console.log(`📦 Metadata blob size: ${uploadBlob.size} bytes`);
+      const encoder = new TextEncoder();
+      uploadData = encoder.encode(jsonString);
+      contentType = 'application/json';
+      console.log(`📦 Metadata size: ${uploadData.length} bytes`);
     } else {
       throw new Error('Invalid upload type');
     }
 
-    console.log(`⬆️ Uploading ${type} to NFT.Storage via FormData...`);
+    console.log(`⬆️ Uploading ${type} to Storacha (${uploadData.length} bytes)...`);
 
-    const formData = new FormData();
-    formData.append('file', uploadBlob, filename);
-
-    const uploadResponse = await fetch('https://api.nft.storage/upload', {
+    const uploadResponse = await fetch(STORACHA_UPLOAD_URL, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': contentType,
+        'Authorization': `Bearer ${didKey}`,
       },
-      body: formData,
+      body: uploadData,
     });
 
-    console.log(`📡 NFT.Storage response status: ${uploadResponse.status}`);
+    console.log(`📡 Storacha response status: ${uploadResponse.status}`);
 
     if (!uploadResponse.ok) {
       const errorText = await uploadResponse.text();
-      console.error('❌ NFT.Storage error response:', errorText);
-      throw new Error(`NFT.Storage upload failed: ${uploadResponse.status} - ${errorText}`);
+      console.error('❌ Storacha error response:', errorText);
+      throw new Error(`Storacha upload failed: ${uploadResponse.status} - ${errorText}`);
     }
 
     const result = await uploadResponse.json();
-    console.log('📦 NFT.Storage response:', JSON.stringify(result, null, 2));
+    console.log('📦 Storacha response:', JSON.stringify(result, null, 2));
 
-    if (!result.ok || !result.value || !result.value.cid) {
-      throw new Error('Invalid response from NFT.Storage: ' + JSON.stringify(result));
+    const cid = result.cid || result.root || result;
+
+    if (!cid) {
+      throw new Error('No CID in Storacha response: ' + JSON.stringify(result));
     }
 
-    const cid = result.value.cid;
-    const url = `https://nftstorage.link/ipfs/${cid}`;
+    const url = `https://w3s.link/ipfs/${cid}`;
 
-    console.log(`✅ ${type} uploaded successfully to IPFS!`);
+    console.log(`✅ Uploaded ${type} successfully to IPFS!`);
     console.log(`📍 CID: ${cid}`);
     console.log(`🔗 Gateway URL: ${url}`);
 
@@ -94,9 +94,9 @@ Deno.serve(async (req: Request) => {
         success: true,
         url,
         cid,
-        gateway: url,
         ipfsUri: `ipfs://${cid}`,
-        size: uploadBlob.size
+        gateway: url,
+        size: uploadData.length
       }),
       {
         headers: {
@@ -108,7 +108,7 @@ Deno.serve(async (req: Request) => {
     );
 
   } catch (error) {
-    console.error('❌ NFT.Storage upload error:', error);
+    console.error('❌ Storacha upload error:', error);
     console.error('Error details:', error.message);
 
     return new Response(
