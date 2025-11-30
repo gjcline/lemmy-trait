@@ -44,7 +44,7 @@ Deno.serve(async (req: Request) => {
 
     console.log(`💰 Irys wallet address: ${irys.address}`);
 
-    let uploadData: string | Uint8Array;
+    let uploadData: Buffer;
     let contentType: string;
     const tags = [
       { name: "App-Name", value: "TrapStars" },
@@ -54,12 +54,14 @@ Deno.serve(async (req: Request) => {
     if (type === 'image') {
       console.log('🖼️ Processing image data...');
       const base64Data = data.includes(',') ? data.split(',')[1] : data;
-      uploadData = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
+      const bytes = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
+      uploadData = Buffer.from(bytes);
       contentType = 'image/png';
       console.log(`📦 Image size: ${uploadData.length} bytes`);
     } else if (type === 'metadata') {
       console.log('📋 Processing metadata JSON...');
-      uploadData = JSON.stringify(data);
+      const jsonString = JSON.stringify(data);
+      uploadData = Buffer.from(jsonString, 'utf-8');
       contentType = 'application/json';
       console.log(`📦 Metadata size: ${uploadData.length} bytes`);
     } else {
@@ -69,6 +71,7 @@ Deno.serve(async (req: Request) => {
     tags.push({ name: "Content-Type", value: contentType });
 
     console.log(`⬆️ Uploading ${type} to Arweave via Irys...`);
+    console.log(`📊 Upload data type: ${uploadData.constructor.name}`);
     const receipt = await irys.upload(uploadData, { tags });
 
     const url = `https://gateway.irys.xyz/${receipt.id}`;
