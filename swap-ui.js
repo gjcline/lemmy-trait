@@ -226,22 +226,22 @@ function renderStep4Confirmation(state, contentDiv, nextBtn) {
                 <div class="space-y-3">
                     <div class="flex justify-between items-center">
                         <span class="text-gray-400">Service Fee</span>
-                        <span class="font-mono text-yellow-400">0.025 SOL</span>
+                        <span class="font-mono text-yellow-400">0.03 SOL</span>
                     </div>
                     <div class="flex justify-between items-center">
                         <span class="text-gray-400">Blockchain Costs</span>
-                        <span class="font-mono">0.015 SOL</span>
+                        <span class="font-mono">0.07 SOL</span>
                     </div>
                     <div class="text-xs text-gray-500 pl-4 -mt-1">
                         <div>• Burn transaction: ~0.001 SOL</div>
-                        <div>• Image upload: ~0.010 SOL</div>
-                        <div>• Metadata upload: ~0.001 SOL</div>
-                        <div>• Update transaction: ~0.001 SOL</div>
+                        <div>• Arweave image storage: ~0.05 SOL</div>
+                        <div>• Arweave metadata storage: ~0.001 SOL</div>
+                        <div>• NFT update transaction: ~0.001 SOL</div>
                     </div>
                     <div class="border-t border-white/10 pt-3 mt-3">
                         <div class="flex justify-between items-center text-lg font-semibold">
                             <span>Total Cost</span>
-                            <span class="font-mono text-green-400">0.040 SOL</span>
+                            <span class="font-mono text-green-400">0.10 SOL</span>
                         </div>
                     </div>
                 </div>
