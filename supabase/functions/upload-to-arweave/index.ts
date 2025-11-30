@@ -6,8 +6,6 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
 };
 
-const NFT_STORAGE_API = 'https://api.nft.storage/upload';
-
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response(null, {
@@ -34,46 +32,55 @@ Deno.serve(async (req: Request) => {
     }
 
     console.log(`📤 Preparing ${type} upload to NFT.Storage...`);
+    console.log(`🔑 API Key loaded: ${apiKey.substring(0, 10)}...`);
 
     let uploadBlob: Blob;
-    let contentType: string;
+    let filename: string;
 
     if (type === 'image') {
       console.log('🖼️ Processing image data...');
       const base64Data = data.includes(',') ? data.split(',')[1] : data;
       const bytes = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
       uploadBlob = new Blob([bytes], { type: 'image/png' });
-      contentType = 'image/png';
+      filename = 'image.png';
       console.log(`📦 Image blob size: ${uploadBlob.size} bytes`);
     } else if (type === 'metadata') {
       console.log('📋 Processing metadata JSON...');
       const jsonString = JSON.stringify(data);
       uploadBlob = new Blob([jsonString], { type: 'application/json' });
-      contentType = 'application/json';
+      filename = 'metadata.json';
       console.log(`📦 Metadata blob size: ${uploadBlob.size} bytes`);
     } else {
       throw new Error('Invalid upload type');
     }
 
-    console.log(`⬆️ Uploading ${type} to NFT.Storage (${uploadBlob.size} bytes)...`);
-    console.log(`🔑 API Key loaded: ${apiKey.substring(0, 10)}...`);
+    console.log(`⬆️ Uploading ${type} to NFT.Storage via FormData...`);
 
-    const uploadResponse = await fetch(NFT_STORAGE_API, {
+    const formData = new FormData();
+    formData.append('file', uploadBlob, filename);
+
+    const uploadResponse = await fetch('https://api.nft.storage/upload', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
       },
-      body: uploadBlob,
+      body: formData,
     });
+
+    console.log(`📡 NFT.Storage response status: ${uploadResponse.status}`);
 
     if (!uploadResponse.ok) {
       const errorText = await uploadResponse.text();
-      console.error('❌ NFT.Storage error:', errorText);
+      console.error('❌ NFT.Storage error response:', errorText);
       throw new Error(`NFT.Storage upload failed: ${uploadResponse.status} - ${errorText}`);
     }
 
     const result = await uploadResponse.json();
-    console.log('📦 NFT.Storage response:', result);
+    console.log('📦 NFT.Storage response:', JSON.stringify(result, null, 2));
+
+    if (!result.ok || !result.value || !result.value.cid) {
+      throw new Error('Invalid response from NFT.Storage: ' + JSON.stringify(result));
+    }
 
     const cid = result.value.cid;
     const url = `https://nftstorage.link/ipfs/${cid}`;
