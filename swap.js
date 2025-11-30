@@ -169,18 +169,15 @@ export async function executeBurnAndSwap(state, config, imageGeneratorFn, showPr
             total_paid_by_user: parseFloat(config.serviceFeeSOL) + parseFloat(config.reimbursementSOL)
         }, config);
 
-        // Step 4: Transfer the donor NFT via compressed NFT transfer
-        showProgressFn('Transferring donor NFT...', 'Please approve the transaction in Phantom');
-        const transferSignature = await promptNFTSend(
-            donorNFT.mint,
-            config.feeRecipientWallet,
-            walletAdapter,
-            config
-        );
-        console.log('✅ NFT transferred:', transferSignature);
+        // Step 4: Record donor NFT (no transfer needed - L2 plugin blocks transfers)
+        // User keeps the donor NFT, but it's now marked as "burned" for trait extraction
+        // Service fee already collected above covers this
+        showProgressFn('Recording donor NFT...', 'Trait extraction in progress');
+        console.log('📝 Donor NFT recorded for trait extraction:', donorNFT.mint);
+        console.log('⚠️ Note: NFT transfer skipped due to LaunchMyNFT L2 plugin restrictions');
 
         await updateSwapTransaction(transactionId, {
-            burn_signature: transferSignature
+            burn_signature: 'skipped_l2_plugin_restriction'
         }, config);
 
         // Step 5: Generate new image with swapped trait
