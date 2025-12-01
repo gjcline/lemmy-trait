@@ -236,7 +236,8 @@ export async function executeBurnAndSwap(state, config, imageGeneratorFn, showPr
 
         // Step 8: Update on-chain metadata
         showProgressFn('Updating NFT on-chain...', 'Signing with update authority');
-        const updateSignature = await updateCompressedNFT(recipientNFT.mint, metadataUrl, config);
+        const userWallet = walletAdapter.publicKey.toString();
+        const updateSignature = await updateCompressedNFT(recipientNFT.mint, metadataUrl, config, userWallet);
         console.log('✅ Metadata updated on-chain:', updateSignature);
 
         // Step 9: Mark transaction as complete

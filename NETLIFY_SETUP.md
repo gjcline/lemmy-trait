@@ -1,56 +1,100 @@
 # Netlify Deployment Setup
 
+## ⚠️ CRITICAL SECURITY UPDATE
+
+**This application now uses a secure backend architecture.** Private keys are NEVER exposed to the frontend.
+
 ## Environment Variables
 
-Your app is now configured to work with Netlify environment variables. Follow these steps to set them up:
+### Frontend Environment Variables (Netlify)
 
-### 1. Go to Netlify Dashboard
+Add these **public** environment variables in Netlify Dashboard:
 
 1. Open your site in Netlify
 2. Go to **Site settings** → **Environment variables**
-
-### 2. Add These Environment Variables
-
-Add each of the following variables with your actual values:
+3. Add the following variables:
 
 ```
 VITE_HELIUS_API_KEY = your_helius_api_key
 VITE_COLLECTION_ADDRESS = your_collection_address
-VITE_UPDATE_AUTHORITY = your_update_authority_wallet
-VITE_UPDATE_AUTHORITY_PRIVATE_KEY = [your,private,key,array]
+VITE_UPDATE_AUTHORITY = your_update_authority_public_key
 VITE_RPC_ENDPOINT = https://mainnet.helius-rpc.com/?api-key=your_helius_api_key
-VITE_LAYER_ORDER = ["background","body","shirt","weapons","accessories","logo","meme","iceout chain","face","mouth","eyes","eyebrows","hair","eyewear","headwear"]
-VITE_OPTIONAL_LAYERS = ["face","eyewear","headwear","accessories","weapons","iceout chain"]
+VITE_LAYER_ORDER = ["background","body","shirt","mouth","face","eyes","eyebrows","hair","accessories","iceout chain","eyewear","meme","headwear","weapons"]
+VITE_OPTIONAL_LAYERS = ["background","face","eyewear","headwear","accessories","weapons","iceout chain","meme"]
 VITE_IMAGE_SIZE = 1750
+VITE_SUPABASE_URL = your_supabase_project_url
+VITE_SUPABASE_ANON_KEY = your_supabase_anon_key
+VITE_FEE_RECIPIENT_WALLET = your_fee_wallet_address
+VITE_SERVICE_FEE_SOL = 0.03
+VITE_REIMBURSEMENT_SOL = 0.002
 ```
 
-**Important Notes:**
-- For `VITE_UPDATE_AUTHORITY_PRIVATE_KEY`, copy the entire array from your `config.json` file
-- For `VITE_LAYER_ORDER` and `VITE_OPTIONAL_LAYERS`, copy the exact JSON arrays as shown
-- Make sure there are no extra spaces or line breaks
+**Important Security Notes:**
+- ❌ **DO NOT** add `VITE_UPDATE_AUTHORITY_PRIVATE_KEY` (removed for security)
+- ✅ Only add the **public** update authority address
+- ✅ All `VITE_` prefixed variables are PUBLIC and embedded in JavaScript
+- ✅ Never put private keys in `VITE_` variables
 
-### 3. Redeploy Your Site (CRITICAL STEP)
+### Backend Secrets (Supabase)
 
-**IMPORTANT:** Environment variables are only embedded during the build process. You MUST trigger a new deployment after adding them.
+The private key is stored ONLY in Supabase Edge Function secrets:
 
-After adding the environment variables:
-1. Go to **Deploys** → **Trigger deploy** → **Deploy site**
-2. Wait for the build to complete
-3. The new deployment will have your environment variables embedded in the JavaScript
+1. Go to Supabase Dashboard
+2. Navigate to **Edge Functions** → **Secrets**
+3. Add these secrets:
 
-**Note:** Simply adding environment variables without redeploying will NOT work!
+```
+UPDATE_AUTHORITY_PRIVATE_KEY = [your,private,key,array]
+RPC_ENDPOINT = https://mainnet.helius-rpc.com/?api-key=your_api_key
+COLLECTION_ADDRESS = your_collection_address
+```
 
-### 4. How It Works
+**Critical:** These secrets are server-side only and NEVER exposed to the browser.
 
-The app now:
-- **Local Development**: Uses `config.json` file (not committed to git)
-- **Production (Netlify)**: Uses environment variables
+## How the Secure Architecture Works
 
-This keeps your private keys secure while allowing the app to work in both environments.
+### Old Architecture (INSECURE ❌):
+```
+Browser → Private Key in JavaScript → Signs Transaction Directly
+```
+**Problem:** Anyone could extract the private key from your website's JavaScript.
 
-### 5. Verify It's Working
+### New Architecture (SECURE ✅):
+```
+Browser → Calls Supabase Edge Function → Server Signs Transaction → Returns Signature
+```
+**Security:** Private key stays on the server, never exposed to users.
 
-After deployment:
-1. Visit your Netlify URL
-2. The "Configuration Required" warning should be gone
-3. You should be able to connect your wallet and see your NFTs
+## Deployment Steps
+
+1. **Configure Netlify Environment Variables** (public frontend vars)
+2. **Configure Supabase Secrets** (private backend secrets)
+3. **Deploy Edge Function** (already deployed: `update-nft-metadata`)
+4. **Redeploy Netlify Site**
+   - Go to **Deploys** → **Trigger deploy** → **Deploy site**
+   - Wait for build to complete
+
+## Verify Security
+
+After deployment, verify the private key is NOT in your JavaScript:
+
+1. Visit your deployed site
+2. Open Chrome DevTools → Sources
+3. Search all JavaScript files for your private key array
+4. **If you find it:** Your deployment is insecure - check your `.env` file
+
+## Migration from Old Setup
+
+If you previously had `VITE_UPDATE_AUTHORITY_PRIVATE_KEY`:
+
+1. ✅ Remove it from Netlify environment variables
+2. ✅ Remove it from your local `.env` file
+3. ✅ Add it to Supabase Edge Function secrets (without `VITE_` prefix)
+4. ✅ Redeploy both Netlify and ensure Edge Function is deployed
+5. ⚠️ Consider rotating your update authority key if it was previously exposed
+
+## Support
+
+If you have questions about the secure architecture, refer to:
+- Supabase Edge Functions documentation
+- Metaplex NFT update authority best practices

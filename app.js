@@ -69,7 +69,6 @@ async function init() {
                 heliusApiKey: import.meta.env.VITE_HELIUS_API_KEY,
                 collectionAddress: import.meta.env.VITE_COLLECTION_ADDRESS,
                 updateAuthority: import.meta.env.VITE_UPDATE_AUTHORITY,
-                updateAuthorityPrivateKey: JSON.parse(import.meta.env.VITE_UPDATE_AUTHORITY_PRIVATE_KEY || '[]'),
                 rpcEndpoint: import.meta.env.VITE_RPC_ENDPOINT,
                 layerOrder: JSON.parse(import.meta.env.VITE_LAYER_ORDER || '["background","body","shirt","mouth","face","eyes","eyebrows","hair","accessories","iceout chain","eyewear","meme","headwear","weapons"]'),
                 optionalLayers: JSON.parse(import.meta.env.VITE_OPTIONAL_LAYERS || '["background","face","eyewear","headwear","accessories","weapons","iceout chain","meme"]'),
@@ -151,8 +150,7 @@ This app requires environment variables to be configured in your Netlify dashboa
 Required Environment Variables:
 - VITE_HELIUS_API_KEY
 - VITE_COLLECTION_ADDRESS
-- VITE_UPDATE_AUTHORITY
-- VITE_UPDATE_AUTHORITY_PRIVATE_KEY
+- VITE_UPDATE_AUTHORITY (public address only)
 - VITE_RPC_ENDPOINT
 - VITE_LAYER_ORDER
 - VITE_OPTIONAL_LAYERS
@@ -160,13 +158,13 @@ Required Environment Variables:
 - VITE_FEE_RECIPIENT_WALLET
 - VITE_SERVICE_FEE_SOL
 - VITE_REIMBURSEMENT_SOL
+- VITE_SUPABASE_URL (for Edge Functions)
+- VITE_SUPABASE_ANON_KEY (for Edge Functions)
 
-Optional (for transaction tracking):
-- VITE_SUPABASE_URL
-- VITE_SUPABASE_ANON_KEY
-
-⚠️ NEVER store private keys in config files or commit them to your repository.
-Always use Netlify's environment variables for security.`);
+⚠️ SECURITY NOTICE:
+- Private keys are NEVER stored in frontend environment variables
+- Update authority private key is stored in Supabase Edge Function secrets
+- Only use VITE_ prefix for public, non-sensitive data`);
 };
 
 // Utility functions

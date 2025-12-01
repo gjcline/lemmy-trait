@@ -316,50 +316,41 @@ async function transferCoreNFT(assetId, recipientAddress, walletAdapter, config)
 }
 
 /**
- * Update a Metaplex Core NFT metadata
+ * Update NFT metadata via secure Edge Function (supports Core and Compressed NFTs)
  */
-async function updateCoreNFT(assetId, newMetadataUri, config) {
-    console.log('📝 Updating Core NFT:', assetId);
+async function updateNFTViaEdgeFunction(assetId, newMetadataUri, userWallet, config) {
+    console.log('📝 Updating NFT via Edge Function:', assetId);
     console.log('New metadata URI:', newMetadataUri);
+    console.log('User wallet:', userWallet);
 
     try {
-        const asset = await getAsset(assetId, config.rpcEndpoint);
-        console.log('Asset data for update:', asset);
+        const edgeFunctionUrl = `${config.supabaseUrl}/functions/v1/update-nft-metadata`;
 
-        const privateKeyArray = new Uint8Array(config.updateAuthorityPrivateKey);
-        const web3Keypair = Keypair.fromSecretKey(privateKeyArray);
-        const umiKeypair = fromWeb3JsKeypair(web3Keypair);
+        const response = await fetch(edgeFunctionUrl, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${config.supabaseAnonKey}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                assetId,
+                newMetadataUri,
+                userWallet
+            })
+        });
 
-        const umi = createUmi(config.rpcEndpoint);
-        const umiSigner = createSignerFromKeypair(umi, umiKeypair);
-
-        umi.use(signerIdentity(umiSigner));
-
-        const assetAddress = umiPublicKey(assetId);
-
-        const updateParams = {
-            asset: assetAddress,
-            newUri: newMetadataUri
-        };
-
-        if (asset.grouping && asset.grouping.length > 0) {
-            const collectionInfo = asset.grouping.find(g => g.group_key === 'collection');
-            if (collectionInfo) {
-                console.log('Adding collection to update:', collectionInfo.group_value);
-                updateParams.collection = umiPublicKey(collectionInfo.group_value);
-            }
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Failed to update NFT');
         }
 
-        console.log('Update params:', updateParams);
-
-        const tx = await updateV1(umi, updateParams).sendAndConfirm(umi);
-
-        console.log('✅ Core NFT updated! Signature:', tx.signature);
-        return tx.signature;
+        const result = await response.json();
+        console.log('✅ NFT updated via Edge Function! Signature:', result.signature);
+        return result.signature;
 
     } catch (err) {
-        console.error('❌ Core NFT update error:', err);
-        throw new Error(`Failed to update Core NFT: ${err.message || err}`);
+        console.error('❌ Edge Function update error:', err);
+        throw new Error(`Failed to update NFT: ${err.message || err}`);
     }
 }
 
@@ -451,99 +442,17 @@ export async function promptNFTSend(assetId, recipientAddress, walletAdapter, co
 /**
  * Update NFT metadata (auto-detects type: Core, Compressed, or Standard)
  */
-export async function updateCompressedNFT(assetId, newMetadataUri, config) {
+export async function updateCompressedNFT(assetId, newMetadataUri, config, userWallet = null) {
     console.log('📝 Updating NFT:', assetId);
     console.log('New metadata URI:', newMetadataUri);
 
     try {
-        const asset = await getAsset(assetId, config.rpcEndpoint);
-        const nftType = detectNFTType(asset);
-
-        if (nftType === 'core') {
-            return await updateCoreNFT(assetId, newMetadataUri, config);
+        if (!userWallet) {
+            throw new Error('User wallet address is required for NFT updates');
         }
 
-        if (nftType === 'compressed') {
-            const proof = await getAssetProof(assetId, config.rpcEndpoint);
+        return await updateNFTViaEdgeFunction(assetId, newMetadataUri, userWallet, config);
 
-            const updateAuthority = asset.authorities?.find(a => a.scopes?.includes('full'))?.address;
-            if (updateAuthority && updateAuthority !== config.updateAuthority) {
-                throw new Error('Update authority mismatch. Cannot update this NFT.');
-            }
-
-            const privateKeyArray = new Uint8Array(config.updateAuthorityPrivateKey);
-            const web3Keypair = Keypair.fromSecretKey(privateKeyArray);
-            const umiKeypair = fromWeb3JsKeypair(web3Keypair);
-
-            const umi = createUmi(config.rpcEndpoint)
-                .use(mplBubblegum());
-
-            const umiSigner = createSignerFromKeypair(umi, umiKeypair);
-            umi.use(signerIdentity(umiSigner));
-
-            const treeAddress = fromWeb3JsPublicKey(new PublicKey(asset.compression.tree));
-
-            const updateIx = updateMetadata(umi, {
-                merkleTree: treeAddress,
-                root: Array.from(Buffer.from(proof.root, 'base64')),
-                nonce: asset.compression.leaf_id,
-                index: asset.compression.leaf_id,
-                currentMetadata: {
-                    name: asset.content.metadata.name,
-                    symbol: asset.content.metadata.symbol || '',
-                    uri: asset.content.json_uri,
-                    sellerFeeBasisPoints: asset.royalty.basis_points,
-                    creators: asset.creators?.map(c => ({
-                        address: fromWeb3JsPublicKey(new PublicKey(c.address)),
-                        verified: c.verified,
-                        share: c.share
-                    })) || [],
-                    collection: asset.grouping?.find(g => g.group_key === 'collection')
-                        ? {
-                            key: fromWeb3JsPublicKey(new PublicKey(
-                                asset.grouping.find(g => g.group_key === 'collection').group_value
-                            )),
-                            verified: true
-                        }
-                        : null,
-                    uses: null
-                },
-                updateArgs: {
-                    name: asset.content.metadata.name,
-                    symbol: asset.content.metadata.symbol || '',
-                    uri: newMetadataUri,
-                    sellerFeeBasisPoints: asset.royalty.basis_points,
-                    creators: asset.creators?.map(c => ({
-                        address: fromWeb3JsPublicKey(new PublicKey(c.address)),
-                        verified: c.verified,
-                        share: c.share
-                    })) || [],
-                    collection: asset.grouping?.find(g => g.group_key === 'collection')
-                        ? {
-                            key: fromWeb3JsPublicKey(new PublicKey(
-                                asset.grouping.find(g => g.group_key === 'collection').group_value
-                            )),
-                            verified: true
-                        }
-                        : null,
-                    uses: null
-                },
-                proof: proof.proof.map(p => ({
-                    pubkey: fromWeb3JsPublicKey(new PublicKey(p)),
-                    isWritable: false,
-                    isSigner: false
-                }))
-            });
-
-            console.log('📤 Sending update transaction...');
-            const signature = await updateIx.sendAndConfirm(umi);
-
-            console.log('✅ NFT updated! Signature:', signature);
-            return signature;
-        }
-
-        throw new Error('Standard NFT updates not yet implemented');
-        
     } catch (err) {
         console.error('❌ Update error:', err);
         throw new Error(`Failed to update NFT: ${err.message}`);
