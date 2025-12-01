@@ -176,6 +176,8 @@ export async function executeBurnAndSwap(state, config, imageGeneratorFn, showPr
         console.log('📝 Donor NFT recorded for trait extraction:', donorNFT.mint);
         console.log('⚠️ Note: NFT transfer skipped due to LaunchMyNFT L2 plugin restrictions');
 
+        const transferSignature = null;
+
         await updateSwapTransaction(transactionId, {
             burn_signature: 'skipped_l2_plugin_restriction'
         }, config);
