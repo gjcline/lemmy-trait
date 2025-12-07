@@ -28,11 +28,6 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const privateKeyEnv = Deno.env.get('UPDATE_AUTHORITY_PRIVATE_KEY');
-    if (!privateKeyEnv) {
-      throw new Error('UPDATE_AUTHORITY_PRIVATE_KEY not configured in Supabase Secrets');
-    }
-
     const { assetId, newMetadataUri, userWallet }: UpdateNFTRequest = await req.json();
 
     if (!assetId || !newMetadataUri || !userWallet) {
@@ -50,16 +45,6 @@ Deno.serve(async (req: Request) => {
     const rpcEndpoint = Deno.env.get('RPC_ENDPOINT') || 'https://api.mainnet-beta.solana.com';
     const collectionAddress = Deno.env.get('COLLECTION_ADDRESS');
 
-    const privateKeyArray = new Uint8Array(JSON.parse(privateKeyEnv));
-    const web3Keypair = Keypair.fromSecretKey(privateKeyArray);
-    const umiKeypair = fromWeb3JsKeypair(web3Keypair);
-
-    const umi = createUmi(rpcEndpoint);
-    const umiSigner = createSignerFromKeypair(umi, umiKeypair);
-    umi.use(signerIdentity(umiSigner));
-    umi.use(dasApi());
-
-    const connection = new Connection(rpcEndpoint, 'confirmed');
     const assetResponse = await fetch(rpcEndpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -79,6 +64,46 @@ Deno.serve(async (req: Request) => {
     }
 
     console.log('Asset type:', asset.interface);
+
+    const OLD_AUTHORITY = '27G5udze5i6DgoyrGZxawDrAkTDw99ZGU27c1LDp7hLk';
+    const NEW_AUTHORITY = '2uPRqodizBvVdCzD2sraN1jM8D9x3GvWd5LTrc31Y6aY';
+
+    const detectedAuthority = asset.authorities?.[0]?.address;
+    console.log('Detected authority:', detectedAuthority);
+
+    let privateKeyEnv: string;
+    let authorityType: string;
+
+    if (detectedAuthority === OLD_AUTHORITY) {
+      privateKeyEnv = Deno.env.get('OLD_AUTHORITY_PRIVATE_KEY');
+      authorityType = 'old';
+      console.log('Using OLD authority wallet');
+
+      if (!privateKeyEnv) {
+        throw new Error('OLD_AUTHORITY_PRIVATE_KEY not configured in Supabase Secrets');
+      }
+    } else if (detectedAuthority === NEW_AUTHORITY) {
+      privateKeyEnv = Deno.env.get('UPDATE_AUTHORITY_PRIVATE_KEY');
+      authorityType = 'new';
+      console.log('Using NEW authority wallet');
+
+      if (!privateKeyEnv) {
+        throw new Error('UPDATE_AUTHORITY_PRIVATE_KEY not configured in Supabase Secrets');
+      }
+    } else {
+      throw new Error(`NFT has unknown authority: ${detectedAuthority}. Expected either ${OLD_AUTHORITY} or ${NEW_AUTHORITY}`);
+    }
+
+    const privateKeyArray = new Uint8Array(JSON.parse(privateKeyEnv));
+    const web3Keypair = Keypair.fromSecretKey(privateKeyArray);
+    const umiKeypair = fromWeb3JsKeypair(web3Keypair);
+
+    const umi = createUmi(rpcEndpoint);
+    const umiSigner = createSignerFromKeypair(umi, umiKeypair);
+    umi.use(signerIdentity(umiSigner));
+    umi.use(dasApi());
+
+    const connection = new Connection(rpcEndpoint, 'confirmed');
 
     let signature: string;
 
@@ -177,12 +202,15 @@ Deno.serve(async (req: Request) => {
     }
 
     console.log('NFT updated successfully:', signature);
+    console.log('Authority used:', authorityType, '(' + (authorityType === 'old' ? OLD_AUTHORITY : NEW_AUTHORITY) + ')');
 
     return new Response(
-      JSON.stringify({ 
-        success: true, 
+      JSON.stringify({
+        success: true,
         signature,
-        message: 'NFT metadata updated successfully' 
+        authorityUsed: authorityType,
+        authorityAddress: detectedAuthority,
+        message: `NFT metadata updated successfully using ${authorityType} authority`
       }),
       {
         status: 200,
