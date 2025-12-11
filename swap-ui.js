@@ -1,20 +1,32 @@
 // Swap UI Functions
 // Handles rendering and interaction for the 4-step burn & swap flow
 
-function renderSwapStep(state, config) {
+/**
+ * Render the current step of the swap flow
+ * @param {Object} state - Application state
+ * @param {Object} config - Configuration object
+ */
+window.renderSwapStep = function(state, config) {
     const step = state.swap.step;
     const contentDiv = document.getElementById('swapStepContent');
     const nextBtn = document.getElementById('swapNextBtn');
     const backBtn = document.getElementById('swapBackBtn');
 
+    if (!contentDiv || !nextBtn || !backBtn) {
+        console.error('Swap UI elements not found');
+        return;
+    }
+
     // Update step indicators
     for (let i = 1; i <= 4; i++) {
         const indicator = document.getElementById(`stepIndicator${i}`);
-        indicator.classList.remove('active', 'completed');
-        if (i < step) {
-            indicator.classList.add('completed');
-        } else if (i === step) {
-            indicator.classList.add('active');
+        if (indicator) {
+            indicator.classList.remove('active', 'completed');
+            if (i < step) {
+                indicator.classList.add('completed');
+            } else if (i === step) {
+                indicator.classList.add('active');
+            }
         }
     }
 
@@ -26,14 +38,16 @@ function renderSwapStep(state, config) {
         'Confirm & Execute'
     ];
     const descriptions = [
-        'Choose the Trap Star to burn for its trait',
+        'Choose the Trap Star to transfer to collection wallet for its trait',
         'Pick which trait you want to extract',
         'Choose which Trap Star will receive the trait',
-        'Review and confirm the burn & swap transaction'
+        'Review and confirm the swap transaction'
     ];
 
-    document.getElementById('stepTitle').textContent = titles[step - 1];
-    document.getElementById('stepDescription').textContent = descriptions[step - 1];
+    const titleEl = document.getElementById('stepTitle');
+    const descEl = document.getElementById('stepDescription');
+    if (titleEl) titleEl.textContent = titles[step - 1];
+    if (descEl) descEl.textContent = descriptions[step - 1];
 
     // Render step content
     switch (step) {
@@ -50,214 +64,253 @@ function renderSwapStep(state, config) {
             backBtn.textContent = '← Back';
             break;
         case 4:
-            renderStep4Confirmation(state, contentDiv, nextBtn);
+            renderStep4Confirmation(state, contentDiv, nextBtn, config);
             backBtn.textContent = '← Back';
-            nextBtn.textContent = '🔥 Burn & Swap';
             break;
     }
-}
+};
 
-// Step 1: Select donor NFT to burn
+/**
+ * Step 1: Select Donor NFT
+ */
 function renderStep1DonorSelection(state, contentDiv, nextBtn) {
-    const html = `
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            ${state.nfts.map((nft, idx) => `
-                <div onclick="selectDonorNFT(${idx})"
-                     class="nft-card glass rounded-2xl p-5 cursor-pointer transition-all ${state.swap.donorNFT?.mint === nft.mint ? 'ring-2 ring-red-500' : ''}">
-                    <div class="relative overflow-hidden rounded-xl mb-4">
-                        <img src="${nft.image}" alt="${nft.name}" class="w-full aspect-square object-cover">
-                        ${state.swap.donorNFT?.mint === nft.mint ? '<div class="absolute top-2 right-2 bg-red-500 text-white px-3 py-1 rounded-full text-xs font-semibold">DONOR</div>' : ''}
-                    </div>
-                    <h3 class="font-semibold mb-3 text-lg tracking-tight">${nft.name}</h3>
-                    <div class="text-xs text-gray-400">
-                        <p>${nft.attributes.length} traits</p>
-                    </div>
+    const nfts = state.nfts;
+
+    if (!nfts || nfts.length === 0) {
+        contentDiv.innerHTML = `
+            <div class="text-center py-12">
+                <p class="text-gray-400">No NFTs found in your wallet</p>
+            </div>
+        `;
+        nextBtn.disabled = true;
+        return;
+    }
+
+    contentDiv.innerHTML = `
+        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            ${nfts.map((nft, index) => `
+                <div class="nft-card glass rounded-xl p-4 cursor-pointer ${state.swap.donorNFT?.mint === nft.mint ? 'border-2 border-green-500' : ''}"
+                     data-nft-index="${index}">
+                    <img src="${nft.image}" alt="${nft.name}" class="w-full rounded-lg mb-3">
+                    <h3 class="text-sm font-semibold truncate">${nft.name}</h3>
+                    <p class="text-xs text-gray-400 truncate">Mint: ${nft.mint.substring(0, 8)}...</p>
                 </div>
             `).join('')}
         </div>
-        <div class="text-center mt-8 p-4 glass rounded-xl">
-            <p class="text-yellow-300 text-sm">⚠️ The selected NFT will be permanently burned</p>
-        </div>
     `;
 
-    contentDiv.innerHTML = html;
+    // Add click handlers
+    contentDiv.querySelectorAll('.nft-card').forEach((card, index) => {
+        card.addEventListener('click', () => {
+            state.swap.donorNFT = nfts[index];
+            renderStep1DonorSelection(state, contentDiv, nextBtn);
+        });
+    });
+
+    // Enable next button if donor is selected
     nextBtn.disabled = !state.swap.donorNFT;
-    nextBtn.classList.toggle('opacity-50', !state.swap.donorNFT);
-    nextBtn.classList.toggle('cursor-not-allowed', !state.swap.donorNFT);
 }
 
-// Step 2: Select trait from donor
+/**
+ * Step 2: Choose Trait to Extract
+ */
 function renderStep2TraitSelection(state, contentDiv, nextBtn) {
     const donor = state.swap.donorNFT;
 
-    const html = `
-        <div class="max-w-4xl mx-auto">
-            <div class="glass rounded-2xl p-6 mb-8">
-                <div class="flex items-center gap-4">
-                    <img src="${donor.image}" alt="${donor.name}" class="w-24 h-24 rounded-xl">
-                    <div>
-                        <h3 class="text-xl font-semibold">${donor.name}</h3>
-                        <p class="text-gray-400 text-sm">Donor NFT (Will be burned)</p>
-                    </div>
-                </div>
+    if (!donor || !donor.attributes) {
+        contentDiv.innerHTML = `
+            <div class="text-center py-12">
+                <p class="text-gray-400">No traits found for selected NFT</p>
             </div>
+        `;
+        nextBtn.disabled = true;
+        return;
+    }
 
-            <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
-                ${donor.attributes
-                    .filter(attr => attr.trait_type.toLowerCase() !== 'logo')
-                    .map(attr => `
-                    <div onclick="selectTrait('${attr.trait_type}', '${attr.value}')"
-                         class="trait-card glass rounded-xl p-4 ${
-                             state.swap.selectedTrait?.category === attr.trait_type ? 'selected' : ''
-                         }">
-                        <div class="text-xs text-gray-400 uppercase mb-1">${attr.trait_type}</div>
-                        <div class="font-semibold">${attr.value}</div>
-                        ${state.swap.selectedTrait?.category === attr.trait_type ?
-                            '<div class="mt-2 text-green-400 text-xs">✓ Selected</div>' : ''}
-                    </div>
-                `).join('')}
-            </div>
-        </div>
-    `;
+    // Filter out traits that shouldn't be swappable
+    const swappableTraits = donor.attributes.filter(attr => {
+        const category = attr.trait_type.toLowerCase();
+        // Allow all traits except logo
+        return category !== 'logo';
+    });
 
-    contentDiv.innerHTML = html;
-    nextBtn.disabled = !state.swap.selectedTrait;
-    nextBtn.classList.toggle('opacity-50', !state.swap.selectedTrait);
-    nextBtn.classList.toggle('cursor-not-allowed', !state.swap.selectedTrait);
-}
-
-// Step 3: Select recipient NFT
-function renderStep3RecipientSelection(state, contentDiv, nextBtn) {
-    // Filter out the donor NFT
-    const availableNFTs = state.nfts.filter(nft => nft.mint !== state.swap.donorNFT.mint);
-
-    const html = `
-        <div class="mb-6 glass rounded-xl p-4">
-            <div class="flex items-center gap-3">
-                <div class="text-2xl">🔥</div>
+    contentDiv.innerHTML = `
+        <div class="glass rounded-2xl p-6 mb-6">
+            <h3 class="text-lg font-semibold mb-4">Donor NFT</h3>
+            <div class="flex items-center gap-4">
+                <img src="${donor.image}" alt="${donor.name}" class="w-24 h-24 rounded-lg">
                 <div>
-                    <p class="text-sm text-gray-400">Extracting trait:</p>
-                    <p class="font-semibold">${state.swap.selectedTrait.category}: ${state.swap.selectedTrait.value}</p>
+                    <p class="font-semibold">${donor.name}</p>
+                    <p class="text-xs text-gray-400">Select a trait to extract</p>
                 </div>
             </div>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            ${availableNFTs.map((nft, idx) => `
-                <div onclick="selectRecipientNFT(${state.nfts.indexOf(nft)})"
-                     class="nft-card glass rounded-2xl p-5 cursor-pointer transition-all ${
-                         state.swap.recipientNFT?.mint === nft.mint ? 'ring-2 ring-green-500' : ''
-                     }">
-                    <div class="relative overflow-hidden rounded-xl mb-4">
-                        <img src="${nft.image}" alt="${nft.name}" class="w-full aspect-square object-cover">
-                        ${state.swap.recipientNFT?.mint === nft.mint ?
-                            '<div class="absolute top-2 right-2 bg-green-500 text-white px-3 py-1 rounded-full text-xs font-semibold">RECIPIENT</div>' : ''}
-                    </div>
-                    <h3 class="font-semibold mb-3 text-lg tracking-tight">${nft.name}</h3>
-                    <div class="text-xs text-gray-400">
-                        <p>${nft.attributes.length} traits</p>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            ${swappableTraits.map(attr => `
+                <div class="trait-card glass rounded-xl p-4 ${state.swap.selectedTrait?.category === attr.trait_type ? 'selected' : ''}"
+                     data-trait-category="${attr.trait_type}"
+                     data-trait-value="${attr.value}">
+                    <div class="flex justify-between items-center">
+                        <div>
+                            <p class="text-xs text-gray-400 uppercase tracking-wider">${attr.trait_type}</p>
+                            <p class="text-sm font-semibold mt-1">${attr.value}</p>
+                        </div>
+                        ${state.swap.selectedTrait?.category === attr.trait_type ?
+                            '<div class="text-green-500 text-2xl">✓</div>' : ''}
                     </div>
                 </div>
             `).join('')}
         </div>
     `;
 
-    contentDiv.innerHTML = html;
-    nextBtn.disabled = !state.swap.recipientNFT;
-    nextBtn.classList.toggle('opacity-50', !state.swap.recipientNFT);
-    nextBtn.classList.toggle('cursor-not-allowed', !state.swap.recipientNFT);
+    // Add click handlers
+    contentDiv.querySelectorAll('.trait-card').forEach(card => {
+        card.addEventListener('click', () => {
+            const category = card.dataset.traitCategory;
+            const value = card.dataset.traitValue;
+            state.swap.selectedTrait = { category, value };
+            renderStep2TraitSelection(state, contentDiv, nextBtn);
+        });
+    });
+
+    // Enable next button if trait is selected
+    nextBtn.disabled = !state.swap.selectedTrait;
 }
 
-// Step 4: Confirmation
-function renderStep4Confirmation(state, contentDiv, nextBtn) {
-    const donor = state.swap.donorNFT;
-    const recipient = state.swap.recipientNFT;
-    const trait = state.swap.selectedTrait;
+/**
+ * Step 3: Select Recipient NFT
+ */
+function renderStep3RecipientSelection(state, contentDiv, nextBtn) {
+    // Filter out the donor NFT
+    const availableNFTs = state.nfts.filter(nft => nft.mint !== state.swap.donorNFT?.mint);
 
-    const html = `
-        <div class="max-w-6xl mx-auto">
-            <div class="grid md:grid-cols-3 gap-6 mb-8">
+    if (availableNFTs.length === 0) {
+        contentDiv.innerHTML = `
+            <div class="text-center py-12">
+                <p class="text-gray-400">No other NFTs available. You need at least 2 NFTs to perform a swap.</p>
+            </div>
+        `;
+        nextBtn.disabled = true;
+        return;
+    }
+
+    contentDiv.innerHTML = `
+        <div class="glass rounded-2xl p-6 mb-6">
+            <h3 class="text-lg font-semibold mb-3">Selected Trait</h3>
+            <div class="flex items-center gap-3">
+                <div class="bg-green-500/20 text-green-400 px-4 py-2 rounded-lg">
+                    <p class="text-xs uppercase tracking-wider">${state.swap.selectedTrait?.category}</p>
+                    <p class="text-sm font-bold">${state.swap.selectedTrait?.value}</p>
+                </div>
+                <p class="text-gray-400 text-sm">← This trait will be applied to recipient</p>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            ${availableNFTs.map((nft, index) => `
+                <div class="nft-card glass rounded-xl p-4 cursor-pointer ${state.swap.recipientNFT?.mint === nft.mint ? 'border-2 border-blue-500' : ''}"
+                     data-nft-index="${index}">
+                    <img src="${nft.image}" alt="${nft.name}" class="w-full rounded-lg mb-3">
+                    <h3 class="text-sm font-semibold truncate">${nft.name}</h3>
+                    <p class="text-xs text-gray-400 truncate">Mint: ${nft.mint.substring(0, 8)}...</p>
+                </div>
+            `).join('')}
+        </div>
+    `;
+
+    // Add click handlers
+    contentDiv.querySelectorAll('.nft-card').forEach((card, index) => {
+        card.addEventListener('click', () => {
+            state.swap.recipientNFT = availableNFTs[index];
+            renderStep3RecipientSelection(state, contentDiv, nextBtn);
+        });
+    });
+
+    // Enable next button if recipient is selected
+    nextBtn.disabled = !state.swap.recipientNFT;
+}
+
+/**
+ * Step 4: Confirmation
+ */
+function renderStep4Confirmation(state, contentDiv, nextBtn, config) {
+    const serviceFee = parseFloat(import.meta.env.VITE_SERVICE_FEE || '0.0025');
+    const reimbursementFee = parseFloat(import.meta.env.VITE_REIMBURSEMENT_FEE || '0.015');
+    const totalFees = serviceFee + reimbursementFee;
+
+    contentDiv.innerHTML = `
+        <div class="max-w-3xl mx-auto space-y-6">
+            <!-- Summary Card -->
+            <div class="glass rounded-2xl p-6">
+                <h3 class="text-xl font-semibold mb-6">Transaction Summary</h3>
+
                 <!-- Donor NFT -->
-                <div class="glass rounded-2xl p-6">
-                    <div class="bg-red-500/10 border border-red-500/30 rounded-lg p-3 mb-4">
-                        <p class="text-red-300 text-sm font-semibold">🔥 Will Be Burned</p>
+                <div class="mb-6 pb-6 border-b border-gray-700">
+                    <p class="text-xs text-gray-400 uppercase tracking-wider mb-3">Donor NFT (Will be transferred)</p>
+                    <div class="flex items-center gap-4">
+                        <img src="${state.swap.donorNFT.image}" alt="${state.swap.donorNFT.name}"
+                             class="w-20 h-20 rounded-lg">
+                        <div>
+                            <p class="font-semibold">${state.swap.donorNFT.name}</p>
+                            <p class="text-xs text-gray-400 font-mono">${state.swap.donorNFT.mint.substring(0, 16)}...</p>
+                        </div>
                     </div>
-                    <img src="${donor.image}" alt="${donor.name}" class="w-full rounded-xl mb-4">
-                    <h3 class="text-xl font-semibold mb-2">${donor.name}</h3>
-                    <p class="text-gray-400 text-sm mb-3">Extracting: ${trait.category} - ${trait.value}</p>
                 </div>
 
-                <!-- Preview NFT -->
-                <div class="glass rounded-2xl p-6" id="previewContainer">
-                    <div class="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3 mb-4">
-                        <p class="text-blue-300 text-sm font-semibold">👁️ Preview</p>
-                    </div>
-                    <div id="previewImageContainer" class="hidden">
-                        <img id="swapPreviewImage" src="" alt="Preview" class="w-full rounded-xl mb-4">
-                        <p class="text-sm text-gray-400 text-center">New look with swapped trait</p>
-                    </div>
-                    <div id="previewPlaceholder" class="flex flex-col items-center justify-center py-8">
-                        <div class="text-4xl mb-4 opacity-30">🖼️</div>
-                        <button onclick="generateSwapPreview()" class="btn-primary px-6 py-3 rounded-xl text-sm">
-                            Generate Preview
-                        </button>
-                        <p class="text-xs text-gray-500 mt-3 text-center">See how the NFT will look after the swap</p>
-                    </div>
-                    <div id="previewLoading" class="hidden flex flex-col items-center justify-center py-8">
-                        <div class="spinner mb-3"></div>
-                        <p class="text-sm text-gray-400">Generating preview...</p>
+                <!-- Trait Being Extracted -->
+                <div class="mb-6 pb-6 border-b border-gray-700">
+                    <p class="text-xs text-gray-400 uppercase tracking-wider mb-3">Trait to Extract</p>
+                    <div class="bg-green-500/20 text-green-400 inline-block px-6 py-3 rounded-lg">
+                        <p class="text-xs uppercase tracking-wider">${state.swap.selectedTrait.category}</p>
+                        <p class="text-lg font-bold">${state.swap.selectedTrait.value}</p>
                     </div>
                 </div>
 
                 <!-- Recipient NFT -->
-                <div class="glass rounded-2xl p-6">
-                    <div class="bg-green-500/10 border border-green-500/30 rounded-lg p-3 mb-4">
-                        <p class="text-green-300 text-sm font-semibold">✨ Will Receive Trait</p>
-                    </div>
-                    <img src="${recipient.image}" alt="${recipient.name}" class="w-full rounded-xl mb-4">
-                    <h3 class="text-xl font-semibold mb-2">${recipient.name}</h3>
-                    <p class="text-gray-400 text-sm mb-3">Will gain: ${trait.category} - ${trait.value}</p>
-                </div>
-            </div>
-
-            <!-- Cost Breakdown -->
-            <div class="glass rounded-2xl p-6">
-                <h4 class="text-lg font-semibold mb-4">Transaction Cost Breakdown</h4>
-                <div class="space-y-3">
-                    <div class="flex justify-between items-center">
-                        <span class="text-gray-400">Service Fee</span>
-                        <span class="font-mono text-yellow-400">0.03 SOL</span>
-                    </div>
-                    <div class="flex justify-between items-center">
-                        <span class="text-gray-400">Blockchain Costs</span>
-                        <span class="font-mono">0.002 SOL</span>
-                    </div>
-                    <div class="text-xs text-gray-500 pl-4 -mt-1">
-                        <div>• Burn transaction: ~0.001 SOL</div>
-                        <div>• NFT update transaction: ~0.001 SOL</div>
-                        <div>• IPFS storage via NFT.Storage: <span class="text-green-400">FREE</span></div>
-                    </div>
-                    <div class="border-t border-white/10 pt-3 mt-3">
-                        <div class="flex justify-between items-center text-lg font-semibold">
-                            <span>Total Cost</span>
-                            <span class="font-mono text-green-400">0.032 SOL</span>
+                <div class="mb-6">
+                    <p class="text-xs text-gray-400 uppercase tracking-wider mb-3">Recipient NFT (Will receive trait)</p>
+                    <div class="flex items-center gap-4">
+                        <img src="${state.swap.recipientNFT.image}" alt="${state.swap.recipientNFT.name}"
+                             class="w-20 h-20 rounded-lg">
+                        <div>
+                            <p class="font-semibold">${state.swap.recipientNFT.name}</p>
+                            <p class="text-xs text-gray-400 font-mono">${state.swap.recipientNFT.mint.substring(0, 16)}...</p>
                         </div>
                     </div>
                 </div>
             </div>
 
+            <!-- Fee Breakdown -->
+            <div class="glass rounded-2xl p-6">
+                <h3 class="text-lg font-semibold mb-4">Fee Breakdown</h3>
+                <div class="space-y-3">
+                    <div class="flex justify-between text-sm">
+                        <span class="text-gray-400">Service Fee</span>
+                        <span class="font-mono">${serviceFee} SOL</span>
+                    </div>
+                    <div class="flex justify-between text-sm">
+                        <span class="text-gray-400">Reimbursement Fee</span>
+                        <span class="font-mono">${reimbursementFee} SOL</span>
+                    </div>
+                    <div class="border-t border-gray-700 pt-3 flex justify-between font-semibold">
+                        <span>Total Fees</span>
+                        <span class="font-mono text-lg">${totalFees.toFixed(4)} SOL</span>
+                    </div>
+                </div>
+            </div>
+
             <!-- Warning -->
-            <div class="bg-red-500/10 border border-red-500/30 rounded-xl p-6 mt-6">
-                <div class="flex gap-4">
-                    <div class="text-3xl">⚠️</div>
+            <div class="glass-light rounded-xl p-4 border border-yellow-500/30">
+                <div class="flex items-start gap-3">
+                    <div class="text-2xl">⚠️</div>
                     <div class="flex-1">
-                        <h4 class="font-semibold text-red-300 mb-2">Important Warning</h4>
-                        <ul class="text-sm text-gray-300 space-y-2">
-                            <li>• <strong>${donor.name}</strong> will be permanently burned and cannot be recovered</li>
-                            <li>• This action is irreversible once the transaction is confirmed</li>
-                            <li>• You will be charged 0.040 SOL total (service fee + blockchain costs)</li>
-                            <li>• Payment must be completed before the burn and swap begins</li>
-                            <li>• Your wallet will prompt you to approve two payments and sign transactions</li>
+                        <p class="text-sm text-yellow-200 font-semibold mb-2">Important Notice</p>
+                        <ul class="text-xs text-gray-300 space-y-1">
+                            <li>• Donor NFT will be transferred to collection wallet</li>
+                            <li>• Recipient NFT will be updated with the selected trait</li>
+                            <li>• This action cannot be undone</li>
+                            <li>• Make sure you have sufficient SOL for fees (~${(totalFees + 0.01).toFixed(4)} SOL including gas)</li>
                         </ul>
                     </div>
                 </div>
@@ -265,85 +318,10 @@ function renderStep4Confirmation(state, contentDiv, nextBtn) {
         </div>
     `;
 
-    contentDiv.innerHTML = html;
+    // Change next button to "Execute Swap"
+    nextBtn.textContent = 'Execute Swap →';
+    nextBtn.classList.add('bg-green-500', 'hover:bg-green-600');
     nextBtn.disabled = false;
-    nextBtn.classList.remove('opacity-50', 'cursor-not-allowed');
 }
 
-// Make functions globally available
-window.selectDonorNFT = selectDonorNFT;
-window.selectTrait = selectTrait;
-window.selectRecipientNFT = selectRecipientNFT;
-window.generateSwapPreview = generateSwapPreview;
-
-function selectDonorNFT(idx) {
-    window.appState.swap.donorNFT = window.appState.nfts[idx];
-    window.renderSwapStep(window.appState, window.appConfig);
-}
-
-function selectTrait(category, value) {
-    window.appState.swap.selectedTrait = { category, value };
-    window.renderSwapStep(window.appState, window.appConfig);
-}
-
-function selectRecipientNFT(idx) {
-    window.appState.swap.recipientNFT = window.appState.nfts[idx];
-    window.renderSwapStep(window.appState, window.appConfig);
-}
-
-async function generateSwapPreview() {
-    const state = window.appState;
-    const config = window.appConfig;
-
-    const placeholderEl = document.getElementById('previewPlaceholder');
-    const loadingEl = document.getElementById('previewLoading');
-    const imageContainerEl = document.getElementById('previewImageContainer');
-    const previewImageEl = document.getElementById('swapPreviewImage');
-
-    if (!state.swap.recipientNFT || !state.swap.selectedTrait) {
-        alert('Missing required information for preview generation');
-        return;
-    }
-
-    try {
-        if (placeholderEl) placeholderEl.classList.add('hidden');
-        if (loadingEl) loadingEl.classList.remove('hidden');
-
-        const newAttributes = [...state.swap.recipientNFT.attributes];
-
-        const existingIndex = newAttributes.findIndex(
-            attr => attr.trait_type.toLowerCase() === state.swap.selectedTrait.category.toLowerCase()
-        );
-        if (existingIndex !== -1) {
-            newAttributes.splice(existingIndex, 1);
-        }
-
-        newAttributes.push({
-            trait_type: state.swap.selectedTrait.category,
-            value: state.swap.selectedTrait.value
-        });
-
-        const imageBlob = await window.generateImageFromTraits(newAttributes);
-
-        if (state.swap.previewUrl) {
-            URL.revokeObjectURL(state.swap.previewUrl);
-        }
-
-        const previewUrl = URL.createObjectURL(imageBlob);
-        state.swap.previewUrl = previewUrl;
-
-        if (previewImageEl) previewImageEl.src = previewUrl;
-        if (loadingEl) loadingEl.classList.add('hidden');
-        if (imageContainerEl) imageContainerEl.classList.remove('hidden');
-
-    } catch (error) {
-        console.error('Preview generation failed:', error);
-        alert(`Failed to generate preview: ${error.message}`);
-
-        if (loadingEl) loadingEl.classList.add('hidden');
-        if (placeholderEl) placeholderEl.classList.remove('hidden');
-    }
-}
-
-// Export to window
-window.renderSwapStep = renderSwapStep;
+console.log('✅ Swap UI module loaded');

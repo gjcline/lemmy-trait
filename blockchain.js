@@ -1,30 +1,35 @@
-// Trap Stars Trait Shop - Blockchain Integration
-// Handles Pinata IPFS uploads and Metaplex Bubblegum operations
+// Trap Stars Trait Shop - Blockchain Module
+// Handles all blockchain transactions: SOL transfers, NFT transfers, metadata updates
 
-import { Connection, Keypair, PublicKey, Transaction, SystemProgram, LAMPORTS_PER_SOL } from '@solana/web3.js';
+import { Connection, PublicKey, Transaction, SystemProgram, LAMPORTS_PER_SOL } from '@solana/web3.js';
 import { createUmi } from '@metaplex-foundation/umi-bundle-defaults';
-import {
-    mplBubblegum,
-    transfer,
-    burn,
-    updateMetadata
-} from '@metaplex-foundation/mpl-bubblegum';
-import {
-    transferV1,
-    updateV1
-} from '@metaplex-foundation/mpl-core';
-import { fromWeb3JsKeypair, fromWeb3JsPublicKey } from '@metaplex-foundation/umi-web3js-adapters';
+import { transferV1 } from '@metaplex-foundation/mpl-core';
 import { walletAdapterIdentity } from '@metaplex-foundation/umi-signer-wallet-adapters';
-import { publicKey as umiPublicKey, signerIdentity, createSignerFromKeypair } from '@metaplex-foundation/umi';
+import { publicKey as umiPublicKey } from '@metaplex-foundation/umi';
+
+/**
+ * Get RPC endpoint from environment
+ */
+function getRpcEndpoint() {
+    const heliusKey = import.meta.env.VITE_HELIUS_API_KEY;
+    if (heliusKey) {
+        return `https://mainnet.helius-rpc.com/?api-key=${heliusKey}`;
+    }
+    return 'https://api.mainnet-beta.solana.com';
+}
 
 /**
  * Transfer SOL from user's wallet to a recipient
+ * @param {Object} walletAdapter - Phantom wallet adapter
+ * @param {string} recipientAddress - Recipient wallet address
+ * @param {number} amountSOL - Amount in SOL to transfer
+ * @returns {Promise<string>} Transaction signature
  */
-export async function transferSOL(walletAdapter, recipientAddress, amountSOL, config) {
+export async function transferSOL(walletAdapter, recipientAddress, amountSOL) {
     console.log(`💸 Transferring ${amountSOL} SOL to ${recipientAddress}...`);
 
     try {
-        const connection = new Connection(config.rpcEndpoint, 'confirmed');
+        const connection = new Connection(getRpcEndpoint(), 'confirmed');
 
         const transaction = new Transaction().add(
             SystemProgram.transfer({
@@ -38,478 +43,129 @@ export async function transferSOL(walletAdapter, recipientAddress, amountSOL, co
         transaction.recentBlockhash = blockhash;
         transaction.feePayer = walletAdapter.publicKey;
 
+        console.log('📝 Requesting wallet signature...');
         const signedTransaction = await walletAdapter.signTransaction(transaction);
 
+        console.log('📤 Sending transaction...');
         const signature = await connection.sendRawTransaction(signedTransaction.serialize());
 
+        console.log('⏳ Confirming transaction...');
         await connection.confirmTransaction({
             signature,
             blockhash,
             lastValidBlockHeight
-        });
+        }, 'confirmed');
 
-        console.log(`✅ Transfer complete: ${signature}`);
+        console.log(`✅ SOL transfer complete: ${signature}`);
         return signature;
 
-    } catch (err) {
-        console.error('❌ Transfer error:', err);
-        throw new Error(`Failed to transfer SOL: ${err.message}`);
+    } catch (error) {
+        console.error('❌ SOL transfer failed:', error);
+        throw new Error(`Failed to transfer SOL: ${error.message}`);
     }
 }
 
 /**
- * Get wallet balance in SOL
+ * Transfer an NFT from user's wallet to a recipient using Metaplex Core
+ * @param {Object} walletAdapter - Phantom wallet adapter
+ * @param {string} nftMint - NFT mint address
+ * @param {string} recipientAddress - Recipient wallet address
+ * @param {string} collectionAddress - Collection address for verification
+ * @returns {Promise<string>} Transaction signature
  */
-export async function getWalletBalance(publicKey, config) {
+export async function transferNFT(walletAdapter, nftMint, recipientAddress, collectionAddress) {
+    console.log(`🎨 Transferring NFT ${nftMint} to ${recipientAddress}...`);
+
     try {
-        const connection = new Connection(config.rpcEndpoint, 'confirmed');
-        const balance = await connection.getBalance(new PublicKey(publicKey));
-        return balance / LAMPORTS_PER_SOL;
-    } catch (err) {
-        console.error('❌ Balance check error:', err);
-        return 0;
+        const umi = createUmi(getRpcEndpoint());
+        umi.use(walletAdapterIdentity(walletAdapter));
+
+        console.log('📝 Creating transfer transaction...');
+        const tx = await transferV1(umi, {
+            asset: umiPublicKey(nftMint),
+            collection: umiPublicKey(collectionAddress),
+            newOwner: umiPublicKey(recipientAddress)
+        }).sendAndConfirm(umi);
+
+        const signature = tx.signature.toString();
+        console.log(`✅ NFT transfer complete: ${signature}`);
+        return signature;
+
+    } catch (error) {
+        console.error('❌ NFT transfer failed:', error);
+        throw new Error(`Failed to transfer NFT: ${error.message}`);
     }
 }
 
 /**
- * Upload image to IPFS via Pinata
+ * Update NFT metadata by calling the Supabase edge function
+ * @param {string} recipientNFT - Recipient NFT mint address
+ * @param {string} traitType - Trait category (e.g., "body", "shirt")
+ * @param {string} newTraitValue - New trait value (e.g., "Ghost", "Hoodie")
+ * @param {string} compositeImageDataUrl - Base64 data URL of the composite image
+ * @returns {Promise<Object>} { signature, imageUrl, metadataUrl }
  */
-export async function uploadImageToArweave(imageBlob, config) {
-    console.log('📤 Uploading image to Pinata...');
+export async function updateNFTMetadata(recipientNFT, traitType, newTraitValue, compositeImageDataUrl) {
+    console.log(`🔄 Updating NFT metadata for ${recipientNFT}...`);
+    console.log(`   Trait: ${traitType} → ${newTraitValue}`);
 
     try {
-        const reader = new FileReader();
-        const base64Promise = new Promise((resolve, reject) => {
-            reader.onloadend = () => resolve(reader.result);
-            reader.onerror = reject;
-            reader.readAsDataURL(imageBlob);
-        });
+        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+        const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-        const base64Data = await base64Promise;
+        if (!supabaseUrl || !supabaseAnonKey) {
+            throw new Error('Supabase configuration missing');
+        }
 
-        const edgeFunctionUrl = `${config.supabaseUrl}/functions/v1/upload-image-to-pinata`;
-        console.log('⬆️ Uploading via Pinata Edge Function...');
+        const functionUrl = `${supabaseUrl}/functions/v1/swap-trait`;
 
-        const response = await fetch(edgeFunctionUrl, {
+        console.log('📤 Calling edge function...');
+        const response = await fetch(functionUrl, {
             method: 'POST',
             headers: {
-                'Authorization': `Bearer ${config.supabaseAnonKey}`,
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${supabaseAnonKey}`,
+                'apikey': supabaseAnonKey
             },
             body: JSON.stringify({
-                data: base64Data
-            })
-        });
-
-        if (!response.ok) {
-            const errorText = await response.text();
-            console.error('❌ Edge Function error response:', errorText);
-            throw new Error(`Edge Function error: ${response.status} ${errorText}`);
-        }
-
-        const result = await response.json();
-
-        if (!result.success) {
-            throw new Error(result.error || 'Upload failed');
-        }
-
-        console.log('✅ Image uploaded to Pinata (public gateway):', result.url);
-        console.log('📌 IPFS Hash:', result.ipfsHash);
-        return result.url;
-
-    } catch (err) {
-        console.error('❌ Pinata upload error:', err);
-        throw new Error(`Failed to upload image: ${err.message}`);
-    }
-}
-
-/**
- * Upload metadata JSON to IPFS via Pinata
- */
-export async function uploadMetadataToArweave(metadata, config) {
-    console.log('📤 Uploading metadata to Pinata...');
-    console.log('📋 Metadata structure:', JSON.stringify(metadata, null, 2));
-
-    try {
-        const json = JSON.stringify(metadata);
-        console.log('📄 JSON string length:', json.length, 'bytes');
-
-        const edgeFunctionUrl = `${config.supabaseUrl}/functions/v1/upload-metadata-to-pinata`;
-        console.log('⬆️ Uploading metadata via Pinata Edge Function...');
-
-        const response = await fetch(edgeFunctionUrl, {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${config.supabaseAnonKey}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                data: metadata
-            })
-        });
-
-        if (!response.ok) {
-            const errorText = await response.text();
-            console.error('❌ Edge Function error response:', errorText);
-            throw new Error(`Edge Function error: ${response.status} ${errorText}`);
-        }
-
-        const result = await response.json();
-        console.log('📦 Upload result:', result);
-
-        if (!result.success) {
-            throw new Error(result.error || 'Upload failed');
-        }
-
-        console.log('✅ Metadata uploaded to Pinata (public gateway):', result.url);
-        console.log('📌 IPFS Hash:', result.ipfsHash);
-
-        return result.url;
-
-    } catch (err) {
-        console.error('❌ Metadata upload error:', err);
-        throw new Error(`Failed to upload metadata: ${err.message}`);
-    }
-}
-
-/**
- * Get asset proof from Helius DAS API
- */
-export async function getAssetProof(assetId, rpcEndpoint) {
-    console.log('🔍 Getting asset proof for:', assetId);
-    
-    try {
-        const response = await fetch(rpcEndpoint, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                jsonrpc: '2.0',
-                id: 'asset-proof',
-                method: 'getAssetProof',
-                params: {
-                    id: assetId
-                }
-            })
-        });
-        
-        const data = await response.json();
-        
-        if (data.error) {
-            throw new Error(`Helius API error: ${data.error.message}`);
-        }
-        
-        console.log('✅ Asset proof retrieved');
-        return data.result;
-        
-    } catch (err) {
-        console.error('❌ Get proof error:', err);
-        throw new Error(`Failed to get asset proof: ${err.message}`);
-    }
-}
-
-/**
- * Get asset data from Helius DAS API
- */
-export async function getAsset(assetId, rpcEndpoint) {
-    console.log('🔍 Getting asset data for:', assetId);
-
-    try {
-        const response = await fetch(rpcEndpoint, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                jsonrpc: '2.0',
-                id: 'asset-data',
-                method: 'getAsset',
-                params: {
-                    id: assetId
-                }
-            })
-        });
-
-        const data = await response.json();
-
-        if (data.error) {
-            throw new Error(`Helius API error: ${data.error.message}`);
-        }
-
-        console.log('✅ Asset data retrieved');
-        return data.result;
-
-    } catch (err) {
-        console.error('❌ Get asset error:', err);
-        throw new Error(`Failed to get asset: ${err.message}`);
-    }
-}
-
-/**
- * Detect NFT type from asset data
- */
-export function detectNFTType(asset) {
-    console.log('🔍 Analyzing asset for type detection:', {
-        interface: asset.interface,
-        ownershipOwner: asset.ownership?.owner,
-        hasCompression: !!asset.compression,
-        compressed: asset.compression?.compressed
-    });
-
-    if (asset.interface === 'V1_NFT' ||
-        asset.interface === 'MplCoreAsset' ||
-        (asset.ownership && asset.ownership.owner === 'CoREENxT6tW1HoK8ypY1SxRMZTcVPm7R94rH4PZNhX7d')) {
-        console.log('🎯 Detected: Metaplex Core NFT');
-        return 'core';
-    }
-
-    if (asset.compression && asset.compression.compressed) {
-        console.log('🎯 Detected: Compressed NFT');
-        return 'compressed';
-    }
-
-    console.log('🎯 Detected: Standard NFT');
-    console.warn('⚠️ Asset data:', JSON.stringify(asset, null, 2));
-    return 'standard';
-}
-
-/**
- * Transfer a Metaplex Core NFT
- */
-async function transferCoreNFT(assetId, recipientAddress, walletAdapter, config) {
-    console.log('🎯 Transferring Core NFT:', assetId);
-
-    try {
-        const asset = await getAsset(assetId, config.rpcEndpoint);
-        console.log('Asset data for transfer:', asset);
-
-        const umi = createUmi(config.rpcEndpoint)
-            .use(walletAdapterIdentity(walletAdapter));
-
-        const assetAddress = umiPublicKey(assetId);
-        const newOwner = umiPublicKey(recipientAddress);
-
-        const transferParams = {
-            asset: assetAddress,
-            newOwner: newOwner
-        };
-
-        if (asset.grouping && asset.grouping.length > 0) {
-            const collectionInfo = asset.grouping.find(g => g.group_key === 'collection');
-            if (collectionInfo) {
-                console.log('Adding collection to transfer:', collectionInfo.group_value);
-                transferParams.collection = umiPublicKey(collectionInfo.group_value);
-            }
-        }
-
-        console.log('Transfer params:', transferParams);
-
-        const tx = await transferV1(umi, transferParams).sendAndConfirm(umi);
-
-        console.log('✅ Core NFT transferred! Signature:', tx.signature);
-        return tx.signature;
-
-    } catch (err) {
-        console.error('❌ Core NFT transfer error:', err);
-        if (err.message && err.message.includes('User rejected')) {
-            throw new Error('User cancelled NFT transfer');
-        }
-        throw new Error(`Failed to transfer Core NFT: ${err.message || err}`);
-    }
-}
-
-/**
- * Update NFT metadata via secure Edge Function (supports Core and Compressed NFTs)
- */
-async function updateNFTViaEdgeFunction(assetId, newMetadataUri, userWallet, config) {
-    console.log('📝 Updating NFT via Edge Function:', assetId);
-    console.log('New metadata URI:', newMetadataUri);
-    console.log('User wallet:', userWallet);
-
-    try {
-        const edgeFunctionUrl = `${config.supabaseUrl}/functions/v1/update-nft-metadata`;
-
-        const response = await fetch(edgeFunctionUrl, {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${config.supabaseAnonKey}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                assetId,
-                newMetadataUri,
-                userWallet
+                recipientNFT,
+                traitType,
+                newTraitValue,
+                compositeImageDataUrl
             })
         });
 
         if (!response.ok) {
             const errorData = await response.json();
-            throw new Error(errorData.error || 'Failed to update NFT');
+            throw new Error(errorData.error || 'Edge function failed');
         }
 
         const result = await response.json();
-        console.log('✅ NFT updated via Edge Function! Signature:', result.signature);
-        return result.signature;
+        console.log('✅ Metadata update complete');
+        console.log(`   Image: ${result.imageUrl}`);
+        console.log(`   Metadata: ${result.metadataUrl}`);
+        console.log(`   Signature: ${result.signature}`);
 
-    } catch (err) {
-        console.error('❌ Edge Function update error:', err);
-        throw new Error(`Failed to update NFT: ${err.message || err}`);
+        return result;
+
+    } catch (error) {
+        console.error('❌ Metadata update failed:', error);
+        throw new Error(`Failed to update metadata: ${error.message}`);
     }
 }
 
 /**
- * Fetch asset proof from Helius DAS API
+ * Get wallet's SOL balance
+ * @param {PublicKey} publicKey - Wallet public key
+ * @returns {Promise<number>} Balance in SOL
  */
-async function fetchAssetProof(assetId, config) {
-    const response = await fetch(config.rpcEndpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            jsonrpc: '2.0',
-            id: 'asset-proof',
-            method: 'getAssetProof',
-            params: { id: assetId }
-        })
-    });
-
-    const { result, error } = await response.json();
-    if (error) throw new Error(`Failed to fetch asset proof: ${error.message}`);
-    return result;
-}
-
-/**
- * Transfer an NFT (auto-detects type: Core, Compressed, or Standard)
- * @param {string} assetId - The NFT asset ID
- * @param {string} recipientAddress - The recipient wallet address
- * @param {Object} walletAdapter - The wallet adapter
- * @param {Object} config - Configuration with RPC endpoint
- * @returns {Promise<string>} - Returns transaction signature
- */
-export async function promptNFTSend(assetId, recipientAddress, walletAdapter, config) {
-    console.log('📦 Transferring NFT:', assetId);
-    console.log('🎯 To address:', recipientAddress);
-    console.log('🔑 From wallet:', walletAdapter.publicKey.toString());
-
+export async function getWalletBalance(publicKey) {
     try {
-        const asset = await getAsset(assetId, config.rpcEndpoint);
-        const nftType = detectNFTType(asset);
-
-        if (nftType === 'core') {
-            return await transferCoreNFT(assetId, recipientAddress, walletAdapter, config);
-        }
-
-        if (nftType === 'compressed') {
-            console.log('📋 Fetching asset proof...');
-            const proof = await fetchAssetProof(assetId, config);
-            console.log('✅ Asset proof retrieved');
-
-            const umi = createUmi(config.rpcEndpoint)
-                .use(mplBubblegum())
-                .use(walletAdapterIdentity(walletAdapter));
-
-            console.log('🔨 Building transfer instruction...');
-            const transferIx = transfer(umi, {
-                leafOwner: fromWeb3JsPublicKey(walletAdapter.publicKey),
-                newLeafOwner: fromWeb3JsPublicKey(new PublicKey(recipientAddress)),
-                merkleTree: fromWeb3JsPublicKey(new PublicKey(proof.tree_id)),
-                root: Array.from(Buffer.from(proof.root.trim(), 'base64')),
-                dataHash: Array.from(Buffer.from(proof.data_hash.trim(), 'base64')),
-                creatorHash: Array.from(Buffer.from(proof.creator_hash.trim(), 'base64')),
-                nonce: proof.leaf_id,
-                index: proof.leaf_id,
-                proof: proof.proof.map(p => ({
-                    pubkey: fromWeb3JsPublicKey(new PublicKey(p)),
-                    isWritable: false,
-                    isSigner: false
-                }))
-            });
-
-            console.log('📤 Sending transfer transaction...');
-            const signature = await transferIx.sendAndConfirm(umi);
-
-            console.log('✅ NFT transferred! Signature:', signature);
-            return signature;
-        }
-
-        throw new Error('Standard NFT transfers not yet implemented');
-
-    } catch (err) {
-        console.error('❌ NFT transfer error:', err);
-        if (err.message && err.message.includes('User rejected')) {
-            throw new Error('User cancelled NFT transfer');
-        }
-        throw new Error(`Failed to transfer NFT: ${err.message || err}`);
-    }
-}
-
-/**
- * Update NFT metadata (auto-detects type: Core, Compressed, or Standard)
- */
-export async function updateCompressedNFT(assetId, newMetadataUri, config, userWallet = null) {
-    console.log('📝 Updating NFT:', assetId);
-    console.log('New metadata URI:', newMetadataUri);
-
-    try {
-        if (!userWallet) {
-            throw new Error('User wallet address is required for NFT updates');
-        }
-
-        return await updateNFTViaEdgeFunction(assetId, newMetadataUri, userWallet, config);
-
-    } catch (err) {
-        console.error('❌ Update error:', err);
-        throw new Error(`Failed to update NFT: ${err.message}`);
-    }
-}
-
-/**
- * Complete trait swap - orchestrates all operations
- */
-export async function executeTraitSwap(sourceNFT, targetNFT, selectedTrait, updatedAttributes, newImageBlob, config, progressCallback) {
-    console.log('🚀 Starting complete trait swap...');
-    
-    try {
-        // Step 1: Upload new image
-        progressCallback('Uploading new image to Arweave...');
-        const imageUrl = await uploadImageToBundlr(newImageBlob, config);
-        
-        // Step 2: Create and upload new metadata
-        progressCallback('Creating and uploading metadata...');
-        const newMetadata = {
-            name: targetNFT.name,
-            symbol: 'TRAP',
-            description: `${targetNFT.name} - Trap Stars Collection - Trait Swapped`,
-            image: imageUrl,
-            attributes: updatedAttributes,
-            properties: {
-                files: [{
-                    uri: imageUrl,
-                    type: 'image/png'
-                }],
-                category: 'image',
-                creators: targetNFT.rawData.creators || []
-            }
-        };
-        
-        const metadataUrl = await uploadMetadataToBundlr(newMetadata, config);
-        
-        // Step 3: Burn source NFT
-        progressCallback('Burning source NFT...');
-        const burnSignature = await burnCompressedNFT(sourceNFT.mint, config);
-        
-        // Step 4: Update target NFT
-        progressCallback('Updating target NFT metadata...');
-        const updateSignature = await updateCompressedNFT(targetNFT.mint, metadataUrl, config);
-        
-        console.log('✅ Trait swap complete!');
-        
-        return {
-            success: true,
-            imageUrl,
-            metadataUrl,
-            burnSignature,
-            updateSignature
-        };
-        
-    } catch (err) {
-        console.error('❌ Trait swap error:', err);
-        throw err;
+        const connection = new Connection(getRpcEndpoint(), 'confirmed');
+        const balance = await connection.getBalance(publicKey);
+        return balance / LAMPORTS_PER_SOL;
+    } catch (error) {
+        console.error('Failed to get wallet balance:', error);
+        return 0;
     }
 }

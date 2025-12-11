@@ -1,38 +1,43 @@
-// Trap Stars Burn & Swap Module
-// Handles the multi-step swap flow for burning one NFT to extract a trait for another
+// Trap Stars Trait Shop - Swap Orchestration Module
+// Handles the complete multi-step swap flow with transaction tracking
 
-import { promptNFTSend, updateCompressedNFT, uploadImageToArweave, uploadMetadataToArweave, transferSOL } from './blockchain.js';
+import { transferSOL, transferNFT, updateNFTMetadata, getWalletBalance } from './blockchain.js';
 
-// Supabase client setup (optional)
+// Supabase client setup
 let supabase = null;
 let supabaseEnabled = false;
 
-// Initialize Supabase (optional - won't throw error if not configured)
-export function initSupabase(config) {
-    if (!config || !config.supabaseUrl || !config.supabaseAnonKey) {
+/**
+ * Initialize Supabase for transaction tracking
+ */
+export function initSupabase() {
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+    if (!supabaseUrl || !supabaseAnonKey) {
         console.warn('⚠️ Supabase not configured - transaction tracking disabled');
         supabaseEnabled = false;
         return;
     }
+
     try {
-        const { createClient } = window.supabase;
-        supabase = createClient(
-            config.supabaseUrl,
-            config.supabaseAnonKey
-        );
-        supabaseEnabled = true;
-        console.log('✅ Supabase transaction tracking enabled');
+        if (window.supabase) {
+            const { createClient } = window.supabase;
+            supabase = createClient(supabaseUrl, supabaseAnonKey);
+            supabaseEnabled = true;
+            console.log('✅ Supabase transaction tracking enabled');
+        }
     } catch (err) {
         console.warn('⚠️ Failed to initialize Supabase:', err);
         supabaseEnabled = false;
     }
 }
 
-// Create transaction record (optional)
-export async function createSwapTransaction(walletAddress, donorNFT, recipientNFT, trait, config) {
-    if (!supabase) initSupabase(config);
-
-    if (!supabaseEnabled) {
+/**
+ * Create a transaction record in Supabase
+ */
+async function createTransactionRecord(walletAddress, donorNFT, recipientNFT, trait) {
+    if (!supabaseEnabled || !supabase) {
         console.log('📝 Transaction tracking disabled - skipping database record');
         return { id: null };
     }
@@ -48,232 +53,206 @@ export async function createSwapTransaction(walletAddress, donorNFT, recipientNF
                 recipient_name: recipientNFT.name,
                 swapped_trait_category: trait.category,
                 swapped_trait_value: trait.value,
+                service_fee: parseFloat(import.meta.env.VITE_SERVICE_FEE),
+                reimbursement_fee: parseFloat(import.meta.env.VITE_REIMBURSEMENT_FEE),
                 status: 'pending'
             }])
             .select()
-            .maybeSingle();
+            .single();
 
-        if (error) {
-            console.error('Error creating swap transaction:', error);
-            return { id: null };
-        }
-
+        if (error) throw error;
+        console.log('✅ Transaction record created:', data.id);
         return data;
-    } catch (err) {
-        console.error('Failed to create transaction record:', err);
+    } catch (error) {
+        console.error('Failed to create transaction record:', error);
         return { id: null };
     }
 }
 
-// Update transaction record (optional)
-export async function updateSwapTransaction(transactionId, updates, config) {
-    if (!supabaseEnabled || !transactionId) {
-        return null;
-    }
-
-    if (!supabase) initSupabase(config);
+/**
+ * Update transaction record with signatures
+ */
+async function updateTransactionRecord(transactionId, updates) {
+    if (!supabaseEnabled || !supabase || !transactionId) return;
 
     try {
-        const { data, error } = await supabase
+        const { error } = await supabase
             .from('swap_transactions')
             .update(updates)
-            .eq('id', transactionId)
-            .select()
-            .maybeSingle();
+            .eq('id', transactionId);
 
-        if (error) {
-            console.error('Error updating swap transaction:', error);
-            return null;
-        }
-
-        return data;
-    } catch (err) {
-        console.error('Failed to update transaction record:', err);
-        return null;
+        if (error) throw error;
+        console.log('✅ Transaction record updated');
+    } catch (error) {
+        console.error('Failed to update transaction record:', error);
     }
 }
 
-// Get user's swap transaction history
-export async function getUserSwapHistory(walletAddress, config) {
-    if (!supabase) initSupabase(config);
+/**
+ * Execute the complete trait swap flow
+ * @param {Object} walletAdapter - Phantom wallet adapter
+ * @param {Object} donorNFT - NFT to transfer (donor)
+ * @param {Object} recipientNFT - NFT to receive trait (recipient)
+ * @param {Object} trait - { category, value } of trait to swap
+ * @param {string} compositeImageDataUrl - Base64 data URL of composite image
+ * @param {Function} progressCallback - Called with progress updates (step, message)
+ * @returns {Promise<Object>} All transaction signatures and URLs
+ */
+export async function executeSwap(walletAdapter, donorNFT, recipientNFT, trait, compositeImageDataUrl, progressCallback = null) {
+    console.log('🚀 Starting trait swap execution...');
 
-    const { data, error } = await supabase
-        .from('swap_transactions')
-        .select('*')
-        .eq('wallet_address', walletAddress)
-        .order('created_at', { ascending: false });
+    const results = {
+        serviceFeeSignature: null,
+        reimbursementFeeSignature: null,
+        nftTransferSignature: null,
+        metadataUpdateSignature: null,
+        imageUrl: null,
+        metadataUrl: null,
+        transactionId: null
+    };
 
-    if (error) {
-        console.error('Error fetching swap history:', error);
-        return [];
-    }
-
-    return data || [];
-}
-
-// Execute the complete burn and swap process
-export async function executeBurnAndSwap(state, config, imageGeneratorFn, showProgressFn, walletAdapter) {
-    const { donorNFT, recipientNFT, selectedTrait } = state.swap;
-    let transactionId = null;
+    const updateProgress = (step, message) => {
+        console.log(`[Step ${step}] ${message}`);
+        if (progressCallback) progressCallback(step, message);
+    };
 
     try {
-        // Validate NFT data
-        console.log('🔍 Validating recipient NFT data...');
-        console.log('Recipient NFT:', recipientNFT);
-        console.log('Recipient attributes:', recipientNFT.attributes);
+        // Get environment variables
+        const collectionWallet = import.meta.env.VITE_COLLECTION_WALLET;
+        const reimbursementWallet = import.meta.env.VITE_REIMBURSEMENT_WALLET;
+        const serviceFee = parseFloat(import.meta.env.VITE_SERVICE_FEE);
+        const reimbursementFee = parseFloat(import.meta.env.VITE_REIMBURSEMENT_FEE);
+        const collectionAddress = import.meta.env.VITE_COLLECTION_ADDRESS;
 
-        if (!recipientNFT.attributes || recipientNFT.attributes.length === 0) {
-            throw new Error('Recipient NFT has no attributes! Cannot perform swap.');
+        if (!collectionWallet || !reimbursementWallet || !collectionAddress) {
+            throw new Error('Missing required environment variables');
         }
 
-        // Step 1: Create transaction record
-        showProgressFn('Creating transaction record...', '');
-        const transaction = await createSwapTransaction(
-            state.walletAddress,
+        // Validate wallet has sufficient balance
+        const totalFees = serviceFee + reimbursementFee;
+        updateProgress(0, 'Checking wallet balance...');
+        const balance = await getWalletBalance(walletAdapter.publicKey);
+
+        if (balance < totalFees + 0.01) { // Add 0.01 SOL buffer for transaction fees
+            throw new Error(`Insufficient balance. Need ${totalFees + 0.01} SOL, have ${balance.toFixed(4)} SOL`);
+        }
+
+        // Create transaction record
+        updateProgress(0, 'Creating transaction record...');
+        const transaction = await createTransactionRecord(
+            walletAdapter.publicKey.toString(),
             donorNFT,
             recipientNFT,
-            selectedTrait,
-            config
+            trait
         );
-        transactionId = transaction.id;
-        console.log('✅ Transaction record created:', transactionId);
+        results.transactionId = transaction.id;
 
-        // Step 2: Collect service fee from user
-        showProgressFn('Processing service fee payment...', `Transferring ${config.serviceFeeSOL} SOL to fee wallet`);
-        const serviceFeeSignature = await transferSOL(
+        // STEP 1: Service Fee Transfer
+        updateProgress(1, `Transferring service fee (${serviceFee} SOL)...`);
+        results.serviceFeeSignature = await transferSOL(
             walletAdapter,
-            config.feeRecipientWallet,
-            parseFloat(config.serviceFeeSOL),
-            config
+            collectionWallet,
+            serviceFee
         );
-        console.log('✅ Service fee paid:', serviceFeeSignature);
 
-        await updateSwapTransaction(transactionId, {
-            service_fee_signature: serviceFeeSignature,
-            service_fee_amount: parseFloat(config.serviceFeeSOL)
-        }, config);
-
-        // Step 3: Collect reimbursement from user for blockchain costs
-        showProgressFn('Processing cost reimbursement...', `Transferring ${config.reimbursementSOL} SOL to reimbursement wallet`);
-        const reimbursementSignature = await transferSOL(
-            walletAdapter,
-            config.reimbursementWallet,
-            parseFloat(config.reimbursementSOL),
-            config
-        );
-        console.log('✅ Reimbursement paid:', reimbursementSignature);
-
-        await updateSwapTransaction(transactionId, {
-            reimbursement_signature: reimbursementSignature,
-            reimbursement_amount: parseFloat(config.reimbursementSOL),
-            total_paid_by_user: parseFloat(config.serviceFeeSOL) + parseFloat(config.reimbursementSOL)
-        }, config);
-
-        // Step 4: Transfer donor NFT to collection wallet
-        showProgressFn('Transferring donor NFT...', 'Sending to collection wallet');
-        console.log('📝 Transferring donor NFT:', donorNFT.mint);
-        console.log('🎯 To collection wallet:', config.collectionWallet);
-
-        const transferSignature = await promptNFTSend(
-            donorNFT.mint,
-            config.collectionWallet,
-            walletAdapter,
-            config
-        );
-        console.log('✅ Donor NFT transferred:', transferSignature);
-
-        await updateSwapTransaction(transactionId, {
-            burn_signature: transferSignature
-        }, config);
-
-        // Step 5: Generate new image with swapped trait
-        showProgressFn('Generating new image...', 'Compositing layers');
-        const newAttributes = [...recipientNFT.attributes];
-
-        // Remove existing trait of same category
-        const existingIndex = newAttributes.findIndex(
-            attr => attr.trait_type.toLowerCase() === selectedTrait.category.toLowerCase()
-        );
-        if (existingIndex !== -1) {
-            newAttributes.splice(existingIndex, 1);
+        if (transaction.id) {
+            await updateTransactionRecord(transaction.id, {
+                service_fee_signature: results.serviceFeeSignature
+            });
         }
 
-        // Add new trait
-        newAttributes.push({
-            trait_type: selectedTrait.category,
-            value: selectedTrait.value
-        });
+        // STEP 2: Reimbursement Fee Transfer
+        updateProgress(2, `Transferring reimbursement fee (${reimbursementFee} SOL)...`);
+        results.reimbursementFeeSignature = await transferSOL(
+            walletAdapter,
+            reimbursementWallet,
+            reimbursementFee
+        );
 
-        // Generate image blob
-        const imageBlob = await imageGeneratorFn(newAttributes);
-        console.log('✅ Image generated');
+        if (transaction.id) {
+            await updateTransactionRecord(transaction.id, {
+                reimbursement_fee_signature: results.reimbursementFeeSignature
+            });
+        }
 
-        // Step 6: Upload new image to IPFS
-        showProgressFn('Uploading image to IPFS...', 'This may take a moment');
-        const imageUrl = await uploadImageToArweave(imageBlob, config);
-        console.log('✅ Image uploaded:', imageUrl);
+        // STEP 3: Transfer Donor NFT to Collection Wallet
+        updateProgress(3, 'Transferring donor NFT to collection wallet...');
+        results.nftTransferSignature = await transferNFT(
+            walletAdapter,
+            donorNFT.mint,
+            collectionWallet,
+            collectionAddress
+        );
 
-        // Step 7: Create and upload new metadata
-        showProgressFn('Uploading metadata to IPFS...', '');
-        const newMetadata = {
-            name: recipientNFT.name,
-            symbol: 'TRAP',
-            description: 'Trap Stars NFT with custom traits',
-            image: imageUrl,
-            attributes: newAttributes,
-            properties: {
-                files: [{
-                    uri: imageUrl,
-                    type: 'image/png'
-                }],
-                category: 'image'
-            }
-        };
+        if (transaction.id) {
+            await updateTransactionRecord(transaction.id, {
+                nft_transfer_signature: results.nftTransferSignature
+            });
+        }
 
-        const metadataUrl = await uploadMetadataToArweave(newMetadata, config);
-        console.log('✅ Metadata uploaded:', metadataUrl);
+        // STEP 4: Update Recipient NFT Metadata
+        updateProgress(4, 'Updating recipient NFT metadata...');
+        const metadataResult = await updateNFTMetadata(
+            recipientNFT.mint,
+            trait.category,
+            trait.value,
+            compositeImageDataUrl
+        );
 
-        await updateSwapTransaction(transactionId, {
-            new_image_url: imageUrl,
-            new_metadata_url: metadataUrl
-        }, config);
+        results.metadataUpdateSignature = metadataResult.signature;
+        results.imageUrl = metadataResult.imageUrl;
+        results.metadataUrl = metadataResult.metadataUrl;
 
-        // Step 8: Update on-chain metadata
-        showProgressFn('Updating NFT on-chain...', 'Signing with update authority');
-        const userWallet = walletAdapter.publicKey.toString();
-        const updateSignature = await updateCompressedNFT(recipientNFT.mint, metadataUrl, config, userWallet);
-        console.log('✅ Metadata updated on-chain:', updateSignature);
+        // Final update - mark as completed
+        if (transaction.id) {
+            await updateTransactionRecord(transaction.id, {
+                metadata_update_signature: results.metadataUpdateSignature,
+                image_url: results.imageUrl,
+                metadata_url: results.metadataUrl,
+                status: 'completed',
+                completed_at: new Date().toISOString()
+            });
+        }
 
-        // Step 9: Mark transaction as complete
-        await updateSwapTransaction(transactionId, {
-            update_signature: updateSignature,
-            status: 'completed',
-            completed_at: new Date().toISOString(),
-            cost_sol: parseFloat(config.serviceFeeSOL) + parseFloat(config.reimbursementSOL)
-        }, config);
+        updateProgress(5, 'Swap completed successfully! ✅');
+        console.log('🎉 Trait swap complete!');
+        console.log('Results:', results);
 
-        return {
-            success: true,
-            transactionId,
-            serviceFeeSignature,
-            reimbursementSignature,
-            transferSignature,
-            updateSignature,
-            imageUrl,
-            metadataUrl
-        };
+        return results;
 
     } catch (error) {
-        console.error('❌ Burn and swap failed:', error);
+        console.error('❌ Swap execution failed:', error);
 
-        // Update transaction as failed
-        if (transactionId) {
-            await updateSwapTransaction(transactionId, {
+        // Mark transaction as failed
+        if (results.transactionId) {
+            await updateTransactionRecord(results.transactionId, {
                 status: 'failed',
                 error_message: error.message
-            }, config);
+            });
         }
 
         throw error;
     }
 }
+
+/**
+ * Validate swap parameters before execution
+ */
+export function validateSwapParams(donorNFT, recipientNFT, trait) {
+    if (!donorNFT || !recipientNFT) {
+        throw new Error('Both donor and recipient NFTs must be selected');
+    }
+
+    if (donorNFT.mint === recipientNFT.mint) {
+        throw new Error('Donor and recipient NFTs cannot be the same');
+    }
+
+    if (!trait || !trait.category || !trait.value) {
+        throw new Error('Valid trait must be selected');
+    }
+
+    return true;
+}
+
+// Initialize Supabase on module load
+initSupabase();

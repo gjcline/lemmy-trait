@@ -997,20 +997,28 @@ async function executeSwap() {
             throw new Error('Wallet not connected. Please reconnect your wallet and try again.');
         }
 
-        const { executeBurnAndSwap } = await import('./swap.js');
+        // Validate swap parameters
+        const { executeSwap: executeSwapTransaction, validateSwapParams } = await import('./swap.js');
+
+        validateSwapParams(state.swap.donorNFT, state.swap.recipientNFT, state.swap.selectedTrait);
+
+        // Generate composite image for recipient with new trait
+        const compositeImageDataUrl = await generateImageForSwap();
 
         // Show full-page loading overlay
-        showFullPageLoading('Processing Burn & Swap', 'Please approve transactions in your wallet');
+        showFullPageLoading('Processing Trait Swap', 'Please approve transactions in your wallet');
 
-        const result = await executeBurnAndSwap(
-            state,
-            config,
-            generateImageFromTraits,
-            (msg, submsg) => {
-                document.getElementById('fullPageLoadingTitle').textContent = msg;
-                document.getElementById('fullPageLoadingSubtext').textContent = submsg;
-            },
-            window.walletAdapter
+        // Execute swap with progress updates
+        const result = await executeSwapTransaction(
+            window.walletAdapter,
+            state.swap.donorNFT,
+            state.swap.recipientNFT,
+            state.swap.selectedTrait,
+            compositeImageDataUrl,
+            (step, message) => {
+                document.getElementById('fullPageLoadingTitle').textContent = message;
+                document.getElementById('fullPageLoadingSubtext').textContent = `Step ${step} of 5`;
+            }
         );
 
         hideFullPageLoading();
@@ -1025,6 +1033,26 @@ async function executeSwap() {
         hideFullPageLoading();
         console.error('Swap failed:', error);
         alert(`Swap failed: ${error.message}\n\nPlease check the console for details.`);
+    }
+}
+
+// Generate composite image for swap
+async function generateImageForSwap() {
+    try {
+        // Get recipient's current traits
+        const recipientTraits = {};
+        state.swap.recipientNFT.attributes.forEach(attr => {
+            recipientTraits[attr.trait_type] = attr.value;
+        });
+
+        // Replace with the new trait
+        recipientTraits[state.swap.selectedTrait.category] = state.swap.selectedTrait.value;
+
+        // Generate image
+        return await generateImageFromTraits(recipientTraits);
+    } catch (error) {
+        console.error('Failed to generate composite image:', error);
+        throw new Error('Failed to generate preview image');
     }
 }
 
@@ -1049,35 +1077,35 @@ function showSwapSuccess(result) {
                         </a>
                     </div>
                     <div>
-                        <p class="text-xs text-gray-400 mb-1">Cost Reimbursement</p>
-                        <a href="https://solscan.io/tx/${result.reimbursementSignature}" target="_blank"
+                        <p class="text-xs text-gray-400 mb-1">Reimbursement Fee Payment</p>
+                        <a href="https://solscan.io/tx/${result.reimbursementFeeSignature}" target="_blank"
                            class="font-mono text-sm text-blue-400 hover:text-blue-300 break-all">
-                            ${result.reimbursementSignature}
+                            ${result.reimbursementFeeSignature}
                         </a>
                     </div>
                     <div>
-                        <p class="text-xs text-gray-400 mb-1">Transfer Signature</p>
-                        <a href="https://solscan.io/tx/${result.transferSignature}" target="_blank"
+                        <p class="text-xs text-gray-400 mb-1">NFT Transfer to Collection Wallet</p>
+                        <a href="https://solscan.io/tx/${result.nftTransferSignature}" target="_blank"
                            class="font-mono text-sm text-blue-400 hover:text-blue-300 break-all">
-                            ${result.transferSignature}
+                            ${result.nftTransferSignature}
                         </a>
                     </div>
                     <div>
-                        <p class="text-xs text-gray-400 mb-1">Update Signature</p>
-                        <a href="https://solscan.io/tx/${result.updateSignature}" target="_blank"
+                        <p class="text-xs text-gray-400 mb-1">Metadata Update</p>
+                        <a href="https://solscan.io/tx/${result.metadataUpdateSignature}" target="_blank"
                            class="font-mono text-sm text-blue-400 hover:text-blue-300 break-all">
-                            ${result.updateSignature}
+                            ${result.metadataUpdateSignature}
                         </a>
                     </div>
                     <div>
-                        <p class="text-xs text-gray-400 mb-1">New Image</p>
+                        <p class="text-xs text-gray-400 mb-1">New Image URL</p>
                         <a href="${result.imageUrl}" target="_blank"
                            class="font-mono text-sm text-blue-400 hover:text-blue-300 break-all">
                             ${result.imageUrl}
                         </a>
                     </div>
                     <div>
-                        <p class="text-xs text-gray-400 mb-1">New Metadata</p>
+                        <p class="text-xs text-gray-400 mb-1">New Metadata URL</p>
                         <a href="${result.metadataUrl}" target="_blank"
                            class="font-mono text-sm text-blue-400 hover:text-blue-300 break-all">
                             ${result.metadataUrl}

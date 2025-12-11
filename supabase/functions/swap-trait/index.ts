@@ -16,7 +16,6 @@ const COLLECTION_ADDRESS = "5NR4dajELRkLdAPj9ebmW8YrowY61ZX75ugRAvYj7C8i";
 
 interface SwapTraitRequest {
   recipientNFT: string;
-  donorNFT: string;
   traitType: string;
   newTraitValue: string;
   compositeImageDataUrl: string;
@@ -31,11 +30,11 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const { recipientNFT, donorNFT, traitType, newTraitValue, compositeImageDataUrl }: SwapTraitRequest = await req.json();
+    const { recipientNFT, traitType, newTraitValue, compositeImageDataUrl }: SwapTraitRequest = await req.json();
 
-    if (!recipientNFT || !donorNFT || !traitType || !newTraitValue || !compositeImageDataUrl) {
+    if (!recipientNFT || !traitType || !newTraitValue || !compositeImageDataUrl) {
       return new Response(
-        JSON.stringify({ error: "Missing required fields" }),
+        JSON.stringify({ error: "Missing required fields: recipientNFT, traitType, newTraitValue, compositeImageDataUrl" }),
         {
           status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -45,26 +44,34 @@ Deno.serve(async (req: Request) => {
 
     console.log("🔄 Starting trait swap...");
     console.log("Recipient NFT:", recipientNFT);
-    console.log("Donor NFT:", donorNFT);
-    console.log("Trait:", traitType, "->", newTraitValue);
+    console.log("Trait:", traitType, "→", newTraitValue);
 
-    const pinataJwt = Deno.env.get("PINATA_JWT");
-    const rpcEndpoint = Deno.env.get("RPC_ENDPOINT") || "https://api.mainnet-beta.solana.com";
-    const newAuthorityPrivateKey = Deno.env.get("NEW_AUTHORITY_PRIVATE_KEY");
+    // Load environment variables
+    const pinataApiKey = Deno.env.get("PINATA_API_KEY");
+    const pinataSecret = Deno.env.get("PINATA_SECRET");
+    const heliusApiKey = Deno.env.get("HELIUS_API_KEY");
+    const updateAuthorityPrivateKey = Deno.env.get("UPDATE_AUTHORITY_PRIVATE_KEY");
 
-    if (!pinataJwt) {
-      throw new Error("PINATA_JWT not configured");
+    if (!pinataApiKey || !pinataSecret) {
+      throw new Error("PINATA_API_KEY or PINATA_SECRET not configured");
     }
 
-    if (!newAuthorityPrivateKey) {
-      throw new Error("NEW_AUTHORITY_PRIVATE_KEY not configured");
+    if (!updateAuthorityPrivateKey) {
+      throw new Error("UPDATE_AUTHORITY_PRIVATE_KEY not configured");
     }
+
+    const rpcEndpoint = heliusApiKey
+      ? `https://mainnet.helius-rpc.com/?api-key=${heliusApiKey}`
+      : "https://api.mainnet-beta.solana.com";
 
     console.log("✅ Environment variables loaded");
 
-    // Step 1: Upload composite image to Pinata
+    // STEP 1: Upload composite image to Pinata
     console.log("📸 Uploading composite image to Pinata...");
-    const base64Data = compositeImageDataUrl.includes(",") ? compositeImageDataUrl.split(",")[1] : compositeImageDataUrl;
+    const base64Data = compositeImageDataUrl.includes(",")
+      ? compositeImageDataUrl.split(",")[1]
+      : compositeImageDataUrl;
+
     const imageBytes = Uint8Array.from(atob(base64Data), (c) => c.charCodeAt(0));
     const imageBlob = new Blob([imageBytes], { type: "image/png" });
 
@@ -74,7 +81,8 @@ Deno.serve(async (req: Request) => {
     const imageUploadResponse = await fetch(`${PINATA_API_URL}/pinFileToIPFS`, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${pinataJwt}`,
+        "pinata_api_key": pinataApiKey,
+        "pinata_secret_api_key": pinataSecret,
       },
       body: imageFormData,
     });
@@ -90,7 +98,7 @@ Deno.serve(async (req: Request) => {
 
     console.log("✅ Image uploaded:", imageUrl);
 
-    // Step 2: Fetch current NFT metadata from Helius
+    // STEP 2: Fetch current NFT metadata from Helius
     console.log("📥 Fetching current metadata from Helius...");
     const assetResponse = await fetch(rpcEndpoint, {
       method: "POST",
@@ -112,11 +120,12 @@ Deno.serve(async (req: Request) => {
 
     console.log("✅ Current metadata fetched");
 
-    // Step 3: Update only the specified trait
+    // STEP 3: Update only the specified trait
     console.log("🔧 Updating trait in metadata...");
     const currentMetadata = asset.content.metadata;
     const currentAttributes = asset.content.metadata.attributes || [];
 
+    // Update the specific trait in attributes array
     const updatedAttributes = currentAttributes.map((attr: any) => {
       if (attr.trait_type === traitType) {
         return { ...attr, value: newTraitValue };
@@ -126,7 +135,7 @@ Deno.serve(async (req: Request) => {
 
     console.log("📋 Updated attributes:", updatedAttributes);
 
-    // Step 4: Create new metadata with updated trait and image
+    // STEP 4: Create new metadata with updated trait and image
     const updatedMetadata = {
       name: currentMetadata.name,
       symbol: currentMetadata.symbol || "TRAP",
@@ -141,12 +150,13 @@ Deno.serve(async (req: Request) => {
 
     console.log("📦 New metadata prepared");
 
-    // Step 5: Upload new metadata to Pinata
+    // STEP 5: Upload new metadata to Pinata
     console.log("📤 Uploading metadata to Pinata...");
     const metadataUploadResponse = await fetch(`${PINATA_API_URL}/pinJSONToIPFS`, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${pinataJwt}`,
+        "pinata_api_key": pinataApiKey,
+        "pinata_secret_api_key": pinataSecret,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
@@ -168,9 +178,9 @@ Deno.serve(async (req: Request) => {
 
     console.log("✅ Metadata uploaded:", metadataUrl);
 
-    // Step 6: Update NFT on-chain using NEW wallet as authority
+    // STEP 6: Update NFT on-chain using NEW wallet as authority
     console.log("⛓️ Updating NFT on-chain...");
-    const privateKeyArray = new Uint8Array(JSON.parse(newAuthorityPrivateKey));
+    const privateKeyArray = new Uint8Array(JSON.parse(updateAuthorityPrivateKey));
     const web3Keypair = Keypair.fromSecretKey(privateKeyArray);
     const umiKeypair = fromWeb3JsKeypair(web3Keypair);
 
