@@ -65,11 +65,11 @@ Deno.serve(async (req: Request) => {
       throw new Error('No IPFS hash in Pinata response');
     }
 
-    const url = `https://gateway.pinata.cloud/ipfs/${ipfsHash}`;
+    const url = `https://ipfs.io/ipfs/${ipfsHash}`;
 
     console.log('✅ Metadata uploaded to IPFS!');
     console.log(`📍 IPFS Hash: ${ipfsHash}`);
-    console.log(`🔗 Gateway URL: ${url}`);
+    console.log(`🔗 Public Gateway URL: ${url}`);
 
     return new Response(
       JSON.stringify({

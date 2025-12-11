@@ -154,10 +154,10 @@ export async function executeBurnAndSwap(state, config, imageGeneratorFn, showPr
         }, config);
 
         // Step 3: Collect reimbursement from user for blockchain costs
-        showProgressFn('Processing cost reimbursement...', `Transferring ${config.reimbursementSOL} SOL to authority wallet`);
+        showProgressFn('Processing cost reimbursement...', `Transferring ${config.reimbursementSOL} SOL to reimbursement wallet`);
         const reimbursementSignature = await transferSOL(
             walletAdapter,
-            config.updateAuthority,
+            config.reimbursementWallet,
             parseFloat(config.reimbursementSOL),
             config
         );
@@ -169,17 +169,21 @@ export async function executeBurnAndSwap(state, config, imageGeneratorFn, showPr
             total_paid_by_user: parseFloat(config.serviceFeeSOL) + parseFloat(config.reimbursementSOL)
         }, config);
 
-        // Step 4: Record donor NFT (no transfer needed - L2 plugin blocks transfers)
-        // User keeps the donor NFT, but it's now marked as "burned" for trait extraction
-        // Service fee already collected above covers this
-        showProgressFn('Recording donor NFT...', 'Trait extraction in progress');
-        console.log('📝 Donor NFT recorded for trait extraction:', donorNFT.mint);
-        console.log('⚠️ Note: NFT transfer skipped due to LaunchMyNFT L2 plugin restrictions');
+        // Step 4: Transfer donor NFT to collection wallet
+        showProgressFn('Transferring donor NFT...', 'Sending to collection wallet');
+        console.log('📝 Transferring donor NFT:', donorNFT.mint);
+        console.log('🎯 To collection wallet:', config.collectionWallet);
 
-        const transferSignature = null;
+        const transferSignature = await promptNFTSend(
+            donorNFT.mint,
+            config.collectionWallet,
+            walletAdapter,
+            config
+        );
+        console.log('✅ Donor NFT transferred:', transferSignature);
 
         await updateSwapTransaction(transactionId, {
-            burn_signature: 'skipped_l2_plugin_restriction'
+            burn_signature: transferSignature
         }, config);
 
         // Step 5: Generate new image with swapped trait

@@ -69,6 +69,8 @@ async function init() {
                 heliusApiKey: import.meta.env.VITE_HELIUS_API_KEY,
                 collectionAddress: import.meta.env.VITE_COLLECTION_ADDRESS,
                 updateAuthority: import.meta.env.VITE_UPDATE_AUTHORITY,
+                reimbursementWallet: import.meta.env.VITE_REIMBURSEMENT_WALLET || import.meta.env.VITE_UPDATE_AUTHORITY,
+                collectionWallet: import.meta.env.VITE_COLLECTION_WALLET || import.meta.env.VITE_FEE_RECIPIENT_WALLET,
                 rpcEndpoint: import.meta.env.VITE_RPC_ENDPOINT,
                 layerOrder: JSON.parse(import.meta.env.VITE_LAYER_ORDER || '["background","body","shirt","mouth","face","eyes","eyebrows","hair","accessories","iceout chain","eyewear","meme","headwear","weapons"]'),
                 optionalLayers: JSON.parse(import.meta.env.VITE_OPTIONAL_LAYERS || '["background","face","eyewear","headwear","accessories","weapons","iceout chain","meme"]'),
