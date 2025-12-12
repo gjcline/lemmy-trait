@@ -3,6 +3,8 @@
 
 import { Buffer } from 'buffer';
 import process from 'process';
+import bs58 from 'bs58';
+
 window.Buffer = Buffer;
 window.process = process;
 window.global = window;
@@ -1087,6 +1089,40 @@ async function generateImageForSwap() {
     }
 }
 
+// Helper function to display signatures with proper formatting and Solscan links
+function displaySignature(label, signature) {
+    try {
+        let sig = signature;
+
+        // If signature is an array, convert to base58
+        if (Array.isArray(signature)) {
+            sig = bs58.encode(new Uint8Array(signature));
+        }
+
+        return `
+            <div>
+                <p class="text-xs text-gray-400 mb-1">${label}</p>
+                <a href="https://solscan.io/tx/${sig}"
+                   target="_blank"
+                   rel="noopener noreferrer"
+                   class="font-mono text-sm text-blue-400 hover:text-blue-300 break-all underline">
+                    ${sig}
+                </a>
+            </div>
+        `;
+    } catch (error) {
+        console.error(`Error displaying signature for ${label}:`, error);
+
+        // Fallback if conversion fails
+        return `
+            <div>
+                <p class="text-xs text-gray-400 mb-1">${label}</p>
+                <p class="font-mono text-sm text-gray-500 break-all">${signature?.toString() || 'N/A'}</p>
+            </div>
+        `;
+    }
+}
+
 // Show swap success screen
 function showSwapSuccess(result) {
     hideElement(document.getElementById('swapPage'));
@@ -1100,45 +1136,23 @@ function showSwapSuccess(result) {
             <div class="glass rounded-2xl p-8 mb-6">
                 <h3 class="text-xl font-semibold mb-4">Transaction Details</h3>
                 <div class="space-y-3 text-left">
-                    <div>
-                        <p class="text-xs text-gray-400 mb-1">Service Fee Payment</p>
-                        <a href="https://solscan.io/tx/${result.serviceFeeSignature}" target="_blank"
-                           class="font-mono text-sm text-blue-400 hover:text-blue-300 break-all">
-                            ${result.serviceFeeSignature}
-                        </a>
-                    </div>
-                    <div>
-                        <p class="text-xs text-gray-400 mb-1">Reimbursement Fee Payment</p>
-                        <a href="https://solscan.io/tx/${result.reimbursementFeeSignature}" target="_blank"
-                           class="font-mono text-sm text-blue-400 hover:text-blue-300 break-all">
-                            ${result.reimbursementFeeSignature}
-                        </a>
-                    </div>
-                    <div>
-                        <p class="text-xs text-gray-400 mb-1">NFT Transfer to Collection Wallet</p>
-                        <a href="https://solscan.io/tx/${result.nftTransferSignature}" target="_blank"
-                           class="font-mono text-sm text-blue-400 hover:text-blue-300 break-all">
-                            ${result.nftTransferSignature}
-                        </a>
-                    </div>
-                    <div>
-                        <p class="text-xs text-gray-400 mb-1">Metadata Update</p>
-                        <a href="https://solscan.io/tx/${result.metadataUpdateSignature}" target="_blank"
-                           class="font-mono text-sm text-blue-400 hover:text-blue-300 break-all">
-                            ${result.metadataUpdateSignature}
-                        </a>
-                    </div>
+                    ${displaySignature('Service Fee Payment', result.serviceFeeSignature)}
+                    ${displaySignature('Reimbursement Fee Payment', result.reimbursementFeeSignature)}
+                    ${displaySignature('NFT Transfer to Collection Wallet', result.nftTransferSignature)}
+                    ${displaySignature('Metadata Update', result.metadataUpdateSignature)}
                     <div>
                         <p class="text-xs text-gray-400 mb-1">New Image URL</p>
                         <a href="${result.imageUrl}" target="_blank"
-                           class="font-mono text-sm text-blue-400 hover:text-blue-300 break-all">
+                           rel="noopener noreferrer"
+                           class="font-mono text-sm text-blue-400 hover:text-blue-300 break-all underline">
                             ${result.imageUrl}
                         </a>
                     </div>
                     <div>
                         <p class="text-xs text-gray-400 mb-1">New Metadata URL</p>
                         <a href="${result.metadataUrl}" target="_blank"
-                           class="font-mono text-sm text-blue-400 hover:text-blue-300 break-all">
+                           rel="noopener noreferrer"
+                           class="font-mono text-sm text-blue-400 hover:text-blue-300 break-all underline">
                             ${result.metadataUrl}
                         </a>
                     </div>
