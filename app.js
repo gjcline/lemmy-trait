@@ -65,13 +65,17 @@ async function init() {
     // Try environment variables (production)
     if (import.meta.env.VITE_HELIUS_API_KEY) {
         try {
+            // Construct RPC endpoint from Helius API key
+            const heliusApiKey = import.meta.env.VITE_HELIUS_API_KEY;
+            const rpcEndpoint = `https://mainnet.helius-rpc.com/?api-key=${heliusApiKey}`;
+
             config = {
-                heliusApiKey: import.meta.env.VITE_HELIUS_API_KEY,
+                heliusApiKey: heliusApiKey,
                 collectionAddress: import.meta.env.VITE_COLLECTION_ADDRESS,
                 updateAuthority: import.meta.env.VITE_UPDATE_AUTHORITY,
                 reimbursementWallet: import.meta.env.VITE_REIMBURSEMENT_WALLET || import.meta.env.VITE_UPDATE_AUTHORITY,
                 collectionWallet: import.meta.env.VITE_COLLECTION_WALLET || import.meta.env.VITE_FEE_RECIPIENT_WALLET,
-                rpcEndpoint: import.meta.env.VITE_RPC_ENDPOINT,
+                rpcEndpoint: rpcEndpoint,
                 layerOrder: JSON.parse(import.meta.env.VITE_LAYER_ORDER || '["background","body","shirt","mouth","face","eyes","eyebrows","hair","accessories","iceout chain","eyewear","meme","headwear","weapons"]'),
                 optionalLayers: JSON.parse(import.meta.env.VITE_OPTIONAL_LAYERS || '["background","face","eyewear","headwear","accessories","weapons","iceout chain","meme"]'),
                 imageSize: parseInt(import.meta.env.VITE_IMAGE_SIZE || '1750'),
@@ -82,6 +86,8 @@ async function init() {
                 supabaseAnonKey: import.meta.env.VITE_SUPABASE_ANON_KEY
             };
             console.log('✅ Configuration loaded from environment variables');
+            console.log('🔗 RPC Endpoint:', rpcEndpoint);
+            console.log('📋 Collection Address:', config.collectionAddress);
             console.log('📋 Layer order:', config.layerOrder);
             console.log('📋 Optional layers:', config.optionalLayers);
 
@@ -480,12 +486,8 @@ async function fetchUserNFTs(walletAddr) {
         }));
         
         console.log('✅ Formatted NFTs:', state.nfts);
-        
-        document.getElementById('nftCount').textContent = `${state.nfts.length} Trap Stars found`;
-        
         hideLoading();
-        renderNFTSelection();
-        showStatus(`✅ Found ${state.nfts.length} Trap Stars!`, 'info');
+        showStatus(`Found ${trapStars.length} Trap Stars!`, 'success');
         
     } catch (err) {
         console.error('❌ Fetch error:', err);
