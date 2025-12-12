@@ -53,8 +53,8 @@ async function createTransactionRecord(walletAddress, donorNFT, recipientNFT, tr
                 recipient_name: recipientNFT.name,
                 swapped_trait_category: trait.category,
                 swapped_trait_value: trait.value,
-                service_fee: parseFloat(import.meta.env.VITE_SERVICE_FEE),
-                reimbursement_fee: parseFloat(import.meta.env.VITE_REIMBURSEMENT_FEE),
+                service_fee_amount: parseFloat(import.meta.env.VITE_SERVICE_FEE),
+                reimbursement_amount: parseFloat(import.meta.env.VITE_REIMBURSEMENT_FEE),
                 status: 'pending'
             }])
             .select()
