@@ -1004,8 +1004,8 @@ async function executeSwap() {
 
         validateSwapParams(state.swap.donorNFT, state.swap.recipientNFT, state.swap.selectedTrait);
 
-        // Generate composite image for recipient with new trait
-        const compositeImageDataUrl = await generateImageForSwap();
+        // Use cached preview or generate composite image for recipient with new trait
+        const compositeImageDataUrl = state.swap.compositeImageDataUrl || await generateImageForSwap();
 
         // Show full-page loading overlay
         showFullPageLoading('Processing Trait Swap', 'Please approve transactions in your wallet');
@@ -1038,20 +1038,37 @@ async function executeSwap() {
     }
 }
 
-// Generate composite image for swap
+/**
+ * Generate composite image for swap preview
+ * Takes recipient's current traits + replaces ONE trait with the donor's trait
+ */
 async function generateImageForSwap() {
     try {
-        // Get recipient's current traits
+        // Get recipient's current traits as object
         const recipientTraits = {};
         state.swap.recipientNFT.attributes.forEach(attr => {
             recipientTraits[attr.trait_type] = attr.value;
         });
 
-        // Replace with the new trait
+        // REPLACE with the new trait from donor
         recipientTraits[state.swap.selectedTrait.category] = state.swap.selectedTrait.value;
 
-        // Generate image
-        return await generateImageFromTraits(recipientTraits);
+        // Convert back to attributes array format
+        const updatedAttributes = Object.entries(recipientTraits).map(([trait_type, value]) => ({
+            trait_type,
+            value
+        }));
+
+        // Generate composite image using existing generateImageFromTraits
+        const imageBlob = await generateImageFromTraits(updatedAttributes);
+
+        // Convert blob to data URL for preview
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result);
+            reader.onerror = reject;
+            reader.readAsDataURL(imageBlob);
+        });
     } catch (error) {
         console.error('Failed to generate composite image:', error);
         throw new Error('Failed to generate preview image');
@@ -1301,6 +1318,7 @@ window.appState = state;
 window.appConfig = config;
 window.showModeSelection = showModeSelection;
 window.generateImageFromTraits = generateImageFromTraits;
+window.generateImageForSwap = generateImageForSwap;
 
 // OLD SWAP FUNCTION REMOVED - replaced with customization flow above
 

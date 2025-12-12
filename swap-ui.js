@@ -281,6 +281,31 @@ function renderStep4Confirmation(state, contentDiv, nextBtn, config) {
                 </div>
             </div>
 
+            <!-- Preview Section -->
+            <div id="preview-section" class="glass rounded-2xl p-6">
+                <h3 class="text-lg font-semibold mb-4">Preview</h3>
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="text-center">
+                        <p class="text-sm text-gray-400 mb-2">Current</p>
+                        <img src="${state.swap.recipientNFT.image}"
+                             alt="Current"
+                             class="w-full rounded-lg border-2 border-gray-700">
+                    </div>
+                    <div class="text-center">
+                        <p class="text-sm text-gray-400 mb-2">After Swap</p>
+                        <div id="preview-loading" class="flex items-center justify-center aspect-square bg-gray-800 rounded-lg border-2 border-gray-700">
+                            <div class="text-center">
+                                <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-green-500 mx-auto mb-2"></div>
+                                <p class="text-xs text-gray-400">Generating preview...</p>
+                            </div>
+                        </div>
+                        <img id="preview-image"
+                             alt="Preview"
+                             class="w-full rounded-lg border-2 border-green-500 hidden">
+                    </div>
+                </div>
+            </div>
+
             <!-- Fee Breakdown -->
             <div class="glass rounded-2xl p-6">
                 <h3 class="text-lg font-semibold mb-4">Fee Breakdown</h3>
@@ -317,6 +342,37 @@ function renderStep4Confirmation(state, contentDiv, nextBtn, config) {
             </div>
         </div>
     `;
+
+    // Generate preview asynchronously
+    if (window.generateImageForSwap) {
+        window.generateImageForSwap().then(dataUrl => {
+            const previewImg = document.getElementById('preview-image');
+            const loading = document.getElementById('preview-loading');
+
+            if (previewImg && loading) {
+                previewImg.src = dataUrl;
+                previewImg.classList.remove('hidden');
+                loading.classList.add('hidden');
+
+                // Store for use in execution
+                state.swap.compositeImageDataUrl = dataUrl;
+                console.log('✅ Preview image generated and cached');
+            }
+        }).catch(error => {
+            console.error('Preview generation failed:', error);
+            const loading = document.getElementById('preview-loading');
+            if (loading) {
+                loading.innerHTML = `
+                    <div class="text-center">
+                        <p class="text-red-400 text-sm mb-2">Preview failed</p>
+                        <p class="text-xs text-gray-500">${error.message}</p>
+                    </div>
+                `;
+            }
+        });
+    } else {
+        console.error('generateImageForSwap not available');
+    }
 
     // Change next button to "Execute Swap"
     nextBtn.textContent = 'Execute Swap →';
