@@ -287,6 +287,28 @@ async function disconnectWallet() {
     showStatus('Disconnected', 'info');
 }
 
+// Reset swap flow and start fresh
+async function resetSwapFlow() {
+    // Clear all swap state
+    state.swap = {
+        step: 1,
+        donorNFT: null,
+        recipientNFT: null,
+        selectedTrait: null,
+        transactionSignatures: {},
+        compositeImageDataUrl: null,
+        useNewLogo: true,
+        updatedAttributes: null
+    };
+
+    // Refresh NFT list to remove transferred NFT
+    showStatus('Refreshing your collection...', 'info');
+    await fetchUserNFTs(state.walletAddress);
+
+    // Return to mode selection
+    showModeSelection();
+}
+
 // Show mode selection screen
 function showModeSelection() {
     const nftCount = state.nfts.length;
@@ -1160,7 +1182,7 @@ function showSwapSuccess(result) {
             </div>
 
             <div class="flex gap-4 justify-center">
-                <button onclick="showModeSelection()" class="btn-primary px-8 py-3 rounded-xl">
+                <button onclick="resetSwapFlow()" class="btn-primary px-8 py-3 rounded-xl">
                     Perform Another Swap
                 </button>
                 <button onclick="location.reload()" class="btn-secondary px-8 py-3 rounded-xl">
@@ -1347,6 +1369,7 @@ async function generateImageFromTraits(attributes, options = {}) {
 window.appState = state;
 window.appConfig = config;
 window.showModeSelection = showModeSelection;
+window.resetSwapFlow = resetSwapFlow;
 window.generateImageFromTraits = generateImageFromTraits;
 window.generateImageForSwap = generateImageForSwap;
 
