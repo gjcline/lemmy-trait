@@ -304,6 +304,23 @@ function renderStep4Confirmation(state, contentDiv, nextBtn, config) {
                              class="w-full rounded-lg border-2 border-green-500 hidden">
                     </div>
                 </div>
+
+                <!-- Logo Option -->
+                <div class="mt-6 pt-6 border-t border-gray-700">
+                    <label class="flex items-center gap-4 cursor-pointer group">
+                        <input type="checkbox" id="use-new-logo-checkbox" checked
+                               class="w-5 h-5 rounded border-gray-600 text-green-500 focus:ring-green-500 focus:ring-offset-gray-900 cursor-pointer">
+                        <div class="flex items-center gap-3 flex-1">
+                            <img src="https://trapstars-assets.netlify.app/logo/new%20logo.png"
+                                 alt="Uzi Logo"
+                                 class="w-12 h-12 rounded-lg border border-gray-600 object-cover">
+                            <div>
+                                <p class="font-semibold text-white group-hover:text-green-400 transition-colors">Include New Logo</p>
+                                <p class="text-xs text-gray-400">Upgrade to the exclusive Uzi logo overlay</p>
+                            </div>
+                        </div>
+                    </label>
+                </div>
             </div>
 
             <!-- Fee Breakdown -->
@@ -343,6 +360,11 @@ function renderStep4Confirmation(state, contentDiv, nextBtn, config) {
         </div>
     `;
 
+    // Initialize logo preference state (default to true)
+    if (state.swap.useNewLogo === undefined) {
+        state.swap.useNewLogo = true;
+    }
+
     // Generate preview asynchronously
     if (window.generateImageForSwap) {
         window.generateImageForSwap().then(dataUrl => {
@@ -368,6 +390,42 @@ function renderStep4Confirmation(state, contentDiv, nextBtn, config) {
                         <p class="text-xs text-gray-500">${error.message}</p>
                     </div>
                 `;
+            }
+        });
+    }
+
+    // Handle logo checkbox change
+    const logoCheckbox = document.getElementById('use-new-logo-checkbox');
+    if (logoCheckbox) {
+        logoCheckbox.addEventListener('change', async (e) => {
+            state.swap.useNewLogo = e.target.checked;
+            console.log(`Logo preference changed: ${state.swap.useNewLogo ? 'New Uzi Logo' : 'Trap Stars Logo'}`);
+
+            // Regenerate preview with new logo preference
+            const previewImg = document.getElementById('preview-image');
+            const loading = document.getElementById('preview-loading');
+
+            if (previewImg && loading) {
+                // Show loading state
+                previewImg.classList.add('hidden');
+                loading.classList.remove('hidden');
+
+                try {
+                    const dataUrl = await window.generateImageForSwap();
+                    previewImg.src = dataUrl;
+                    previewImg.classList.remove('hidden');
+                    loading.classList.add('hidden');
+                    state.swap.compositeImageDataUrl = dataUrl;
+                    console.log('✅ Preview updated with new logo preference');
+                } catch (error) {
+                    console.error('Preview regeneration failed:', error);
+                    loading.innerHTML = `
+                        <div class="text-center">
+                            <p class="text-red-400 text-sm mb-2">Preview update failed</p>
+                            <p class="text-xs text-gray-500">${error.message}</p>
+                        </div>
+                    `;
+                }
             }
         });
     } else {

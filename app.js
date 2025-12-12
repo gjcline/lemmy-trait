@@ -1053,14 +1053,26 @@ async function generateImageForSwap() {
         // REPLACE with the new trait from donor
         recipientTraits[state.swap.selectedTrait.category] = state.swap.selectedTrait.value;
 
+        // Handle Logo trait based on user preference
+        const useNewLogo = state.swap.useNewLogo !== false; // Default to true
+        recipientTraits['Logo'] = useNewLogo ? 'Uzi' : 'Trap Stars';
+
         // Convert back to attributes array format
         const updatedAttributes = Object.entries(recipientTraits).map(([trait_type, value]) => ({
             trait_type,
             value
         }));
 
-        // Generate composite image using existing generateImageFromTraits
-        const imageBlob = await generateImageFromTraits(updatedAttributes);
+        // Store updated attributes for later use in swap execution
+        state.swap.updatedAttributes = updatedAttributes;
+
+        // Generate composite image with logo preference
+        const logoOptions = useNewLogo ? {
+            logoUrl: 'https://trapstars-assets.netlify.app/logo/new%20logo.png',
+            useNewLogo: true
+        } : {};
+
+        const imageBlob = await generateImageFromTraits(updatedAttributes, logoOptions);
 
         // Convert blob to data URL for preview
         return new Promise((resolve, reject) => {
@@ -1155,7 +1167,7 @@ function renderCustomizationPage() {
 }
 
 // Generate image from traits (used for both customization and swap preview)
-async function generateImageFromTraits(attributes) {
+async function generateImageFromTraits(attributes, options = {}) {
     console.log('🎨 Starting image generation from traits...');
 
     if (!config) {
@@ -1279,8 +1291,12 @@ async function generateImageFromTraits(attributes) {
         console.warn('Missing layers:', missingLayers);
     }
 
-    const logoUrl = import.meta.env.VITE_LOGO_URL || 'https://trapstars-assets.netlify.app/logo/logo.png';
-    console.log(`Drawing logo overlay from: ${logoUrl}`);
+    // Use custom logo URL if provided, otherwise use default
+    const defaultLogoUrl = import.meta.env.VITE_LOGO_URL || 'https://trapstars-assets.netlify.app/logo/logo.png';
+    const logoUrl = options.logoUrl || defaultLogoUrl;
+    const logoType = options.useNewLogo ? 'New Uzi Logo' : 'Trap Stars Logo';
+
+    console.log(`Drawing ${logoType} overlay from: ${logoUrl}`);
 
     try {
         await new Promise((resolve, reject) => {
@@ -1288,7 +1304,7 @@ async function generateImageFromTraits(attributes) {
             img.crossOrigin = 'anonymous';
             img.onload = () => {
                 ctx.drawImage(img, 0, 0, config.imageSize, config.imageSize);
-                console.log('✅ Logo overlay drawn');
+                console.log(`✅ ${logoType} overlay drawn`);
                 resolve();
             };
             img.onerror = (e) => {
