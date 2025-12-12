@@ -1044,7 +1044,8 @@ async function executeSwap() {
             (step, message) => {
                 document.getElementById('fullPageLoadingTitle').textContent = message;
                 document.getElementById('fullPageLoadingSubtext').textContent = `Step ${step} of 5`;
-            }
+            },
+            state.swap.useNewLogo
         );
 
         hideFullPageLoading();

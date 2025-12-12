@@ -96,10 +96,12 @@ async function updateTransactionRecord(transactionId, updates) {
  * @param {Object} trait - { category, value } of trait to swap
  * @param {string} compositeImageDataUrl - Base64 data URL of composite image
  * @param {Function} progressCallback - Called with progress updates (step, message)
+ * @param {boolean} useNewLogo - Whether to update the Logo trait to "Uzi"
  * @returns {Promise<Object>} All transaction signatures and URLs
  */
-export async function executeSwap(walletAdapter, donorNFT, recipientNFT, trait, compositeImageDataUrl, progressCallback = null) {
+export async function executeSwap(walletAdapter, donorNFT, recipientNFT, trait, compositeImageDataUrl, progressCallback = null, useNewLogo = false) {
     console.log('🚀 Starting trait swap execution...');
+    console.log('   Use New Logo:', useNewLogo);
 
     const results = {
         serviceFeeSignature: null,
@@ -196,7 +198,8 @@ export async function executeSwap(walletAdapter, donorNFT, recipientNFT, trait, 
             recipientNFT.mint,
             trait.category,
             trait.value,
-            compositeImageDataUrl
+            compositeImageDataUrl,
+            useNewLogo
         );
 
         results.metadataUpdateSignature = metadataResult.signature;

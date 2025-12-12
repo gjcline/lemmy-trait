@@ -103,11 +103,13 @@ export async function transferNFT(walletAdapter, nftMint, recipientAddress, coll
  * @param {string} traitType - Trait category (e.g., "body", "shirt")
  * @param {string} newTraitValue - New trait value (e.g., "Ghost", "Hoodie")
  * @param {string} compositeImageDataUrl - Base64 data URL of the composite image
+ * @param {boolean} useNewLogo - Whether to update the Logo trait to "Uzi"
  * @returns {Promise<Object>} { signature, imageUrl, metadataUrl }
  */
-export async function updateNFTMetadata(recipientNFT, traitType, newTraitValue, compositeImageDataUrl) {
+export async function updateNFTMetadata(recipientNFT, traitType, newTraitValue, compositeImageDataUrl, useNewLogo = false) {
     console.log(`🔄 Updating NFT metadata for ${recipientNFT}...`);
     console.log(`   Trait: ${traitType} → ${newTraitValue}`);
+    console.log(`   New Logo: ${useNewLogo}`);
 
     try {
         const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
@@ -131,7 +133,8 @@ export async function updateNFTMetadata(recipientNFT, traitType, newTraitValue, 
                 recipientNFT,
                 traitType,
                 newTraitValue,
-                compositeImageDataUrl
+                compositeImageDataUrl,
+                useNewLogo
             })
         });
 

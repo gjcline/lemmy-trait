@@ -19,6 +19,7 @@ interface SwapTraitRequest {
   traitType: string;
   newTraitValue: string;
   compositeImageDataUrl: string;
+  useNewLogo?: boolean;
 }
 
 Deno.serve(async (req: Request) => {
@@ -30,7 +31,7 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const { recipientNFT, traitType, newTraitValue, compositeImageDataUrl }: SwapTraitRequest = await req.json();
+    const { recipientNFT, traitType, newTraitValue, compositeImageDataUrl, useNewLogo }: SwapTraitRequest = await req.json();
 
     if (!recipientNFT || !traitType || !newTraitValue || !compositeImageDataUrl) {
       return new Response(
@@ -45,6 +46,7 @@ Deno.serve(async (req: Request) => {
     console.log("🔄 Starting trait swap...");
     console.log("Recipient NFT:", recipientNFT);
     console.log("Trait:", traitType, "→", newTraitValue);
+    console.log("Use New Logo:", useNewLogo);
 
     // Load environment variables
     const pinataApiKey = Deno.env.get("PINATA_API_KEY");
@@ -127,8 +129,13 @@ Deno.serve(async (req: Request) => {
 
     // Update the specific trait in attributes array
     const updatedAttributes = currentAttributes.map((attr: any) => {
+      // Update the swapped trait
       if (attr.trait_type === traitType) {
         return { ...attr, value: newTraitValue };
+      }
+      // Update Logo trait if new logo is being used
+      if (attr.trait_type === "Logo" && useNewLogo === true) {
+        return { ...attr, value: "Uzi" };
       }
       return attr;
     });
