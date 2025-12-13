@@ -183,8 +183,19 @@ function hideElement(el) { if (el) el.classList.add('hidden'); }
 
 function showStatus(msg, type = 'info') {
     const status = document.getElementById('status');
+    if (!status) return;
     status.textContent = msg;
-    status.className = type === 'error' ? 'text-red-300 text-sm mt-4' : 'text-green-300 text-sm mt-4';
+
+    const badge = status.parentElement;
+    if (badge) {
+        if (type === 'error') {
+            badge.classList.remove('text-green-400/90', 'border-white/10');
+            badge.classList.add('text-red-400/90', 'border-red-500/20');
+        } else {
+            badge.classList.remove('text-red-400/90', 'border-red-500/20');
+            badge.classList.add('text-green-400/90', 'border-white/10');
+        }
+    }
 }
 
 function showLoading(text, subtext = '') {

@@ -100,6 +100,38 @@
             to { opacity: 1; transform: translateY(0); }
         }
 
+        @keyframes fade-in {
+            0% {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            100% {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes fade-up {
+            0% {
+                opacity: 0;
+                transform: translateY(40px);
+            }
+            100% {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .animate-fade-in {
+            animation: fade-in 1s ease-out forwards;
+            animation-delay: 0.2s;
+        }
+
+        .animate-fade-up {
+            animation: fade-up 1s ease-out forwards;
+            animation-delay: 0.4s;
+        }
+
         .fade-in {
             animation: fadeIn 0.6s ease-out forwards;
         }
@@ -282,14 +314,51 @@
     <div id="shader-background"></div>
 
     <div id="app" class="container mx-auto p-4 md:p-8 max-w-7xl">
-        <!-- Header -->
-        <div class="text-center mb-12 fade-in">
-            <h1 class="text-6xl md:text-7xl font-light tracking-tight mb-4" style="font-weight: 300; letter-spacing: -0.02em;">
+        <!-- Hero Header -->
+        <section id="hero" class="relative mx-auto w-full pt-20 md:pt-32 px-6 text-center min-h-[60vh] overflow-hidden rounded-b-xl mb-8">
+            <!-- Grid BG -->
+            <div class="absolute -z-10 inset-0 opacity-20 h-[600px] w-full
+                bg-[linear-gradient(to_right,rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.03)_1px,transparent_1px)]
+                bg-[size:6rem_5rem]
+                [mask-image:radial-gradient(ellipse_80%_50%_at_50%_0%,#000_70%,transparent_110%)]">
+            </div>
+
+            <!-- Radial Accent -->
+            <div class="absolute left-1/2 top-[calc(100%-90px)] lg:top-[calc(100%-150px)]
+                h-[300px] w-[700px] md:h-[400px] md:w-[900px] lg:h-[500px] lg:w-[110%]
+                -translate-x-1/2 rounded-[100%]
+                bg-[radial-gradient(closest-side,rgba(10,10,10,0.8)_82%,rgba(255,255,255,0.05))]
+                animate-fade-up opacity-0 pointer-events-none">
+            </div>
+
+            <!-- Eyebrow -->
+            <div class="inline-block mb-6">
+                <span class="text-sm text-green-400/90 font-medium mx-auto px-5 py-2
+                    bg-gradient-to-tr from-zinc-300/5 via-gray-400/5 to-transparent
+                    border-[2px] border-white/10
+                    rounded-3xl tracking-tight flex items-center justify-center gap-2">
+                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                    </svg>
+                    <span id="status"></span>
+                </span>
+            </div>
+
+            <!-- Title -->
+            <h1 class="animate-fade-in -translate-y-4 text-balance
+                bg-gradient-to-br from-white from-30% to-white/40
+                bg-clip-text py-6 text-5xl font-semibold leading-none tracking-tighter
+                text-transparent opacity-0 sm:text-6xl md:text-7xl lg:text-8xl">
                 Trap Stars
             </h1>
-            <p class="text-lg text-gray-400 font-light">Trait Customization Shop</p>
-            <div id="status" class="text-sm mt-4"></div>
-        </div>
+
+            <!-- Subtitle -->
+            <p class="animate-fade-in mb-8 -translate-y-4 text-balance
+                text-lg tracking-tight text-gray-400
+                opacity-0 md:text-xl">
+                Trait Customization Shop
+            </p>
+        </section>
 
         <!-- Config Notice -->
         <div id="configNotice" class="glass rounded-2xl p-8 mb-8 border-amber-500/30 hidden">
@@ -306,16 +375,27 @@
         </div>
 
         <!-- Wallet Connection -->
-        <div id="connectSection" class="glass rounded-2xl p-12 text-center mb-8 fade-in">
-            <div class="mb-6">
-                <svg class="w-16 h-16 mx-auto mb-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
-                </svg>
+        <div id="connectSection" class="relative glass rounded-2xl p-12 text-center mb-8 fade-in overflow-hidden">
+            <!-- Subtle gradient overlay -->
+            <div class="absolute inset-0 bg-gradient-to-b from-white/[0.02] to-transparent pointer-events-none"></div>
+
+            <div class="relative z-10">
+                <div class="mb-8">
+                    <div class="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-gradient-to-br from-white/10 to-white/5 border border-white/10 mb-4">
+                        <svg class="w-10 h-10 text-white/80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+                        </svg>
+                    </div>
+                </div>
+                <button id="connectBtn" class="inline-flex items-center justify-center whitespace-nowrap rounded-xl text-base font-semibold
+                    transition-all duration-200 h-12 px-8
+                    bg-white text-black hover:bg-white/90
+                    shadow-lg shadow-white/20 hover:shadow-xl hover:shadow-white/30
+                    hover:-translate-y-0.5">
+                    Connect Phantom Wallet
+                </button>
+                <p class="text-sm text-gray-400 mt-6 font-medium">Connect your wallet to access your NFTs</p>
             </div>
-            <button id="connectBtn" class="btn-primary py-4 px-10 rounded-xl text-base">
-                Connect Phantom Wallet
-            </button>
-            <p class="text-sm text-gray-500 mt-4">Connect your wallet to access your NFTs</p>
         </div>
 
         <!-- Wallet Info -->
