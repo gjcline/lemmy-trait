@@ -604,7 +604,12 @@ async function loadTraitLayersFromPublic() {
 function renderNFTSelection() {
     const html = `
         <div class="fade-in">
-            <h2 class="section-title text-center mb-12">Select Your Trap Star</h2>
+            <div class="flex justify-between items-center mb-12">
+                <h2 class="section-title">Select Your Trap Star</h2>
+                <button onclick="backToHome()" class="btn-secondary px-6 py-3 rounded-xl">
+                    ← Back to Home
+                </button>
+            </div>
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 ${state.nfts.map((nft, idx) => `
                     <div onclick="selectNFTToCustomize(${idx})" class="nft-card glass rounded-2xl p-5 cursor-pointer transition-all">
