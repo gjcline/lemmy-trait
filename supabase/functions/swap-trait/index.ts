@@ -154,7 +154,7 @@ Deno.serve(async (req: Request) => {
     // STEP 4: Create new metadata with updated trait and image
     const updatedMetadata = {
       name: currentMetadata.name,
-      symbol: currentMetadata.symbol || "TRAP",
+      symbol: currentMetadata.symbol,
       description: currentMetadata.description || "Trap Stars NFT with custom traits",
       image: imageUrl,
       attributes: updatedAttributes,
