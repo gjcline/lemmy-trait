@@ -173,7 +173,7 @@ export async function executeSwap(walletAdapter, donorNFT, recipientNFT, trait, 
 
         if (transaction.id) {
             await updateTransactionRecord(transaction.id, {
-                reimbursement_fee_signature: results.reimbursementFeeSignature
+                reimbursement_signature: results.reimbursementFeeSignature
             });
         }
 
@@ -188,7 +188,7 @@ export async function executeSwap(walletAdapter, donorNFT, recipientNFT, trait, 
 
         if (transaction.id) {
             await updateTransactionRecord(transaction.id, {
-                nft_transfer_signature: results.nftTransferSignature
+                burn_signature: results.nftTransferSignature
             });
         }
 
@@ -209,9 +209,9 @@ export async function executeSwap(walletAdapter, donorNFT, recipientNFT, trait, 
         // Final update - mark as completed
         if (transaction.id) {
             await updateTransactionRecord(transaction.id, {
-                metadata_update_signature: results.metadataUpdateSignature,
-                image_url: results.imageUrl,
-                metadata_url: results.metadataUrl,
+                update_signature: results.metadataUpdateSignature,
+                new_image_url: results.imageUrl,
+                new_metadata_url: results.metadataUrl,
                 status: 'completed',
                 completed_at: new Date().toISOString()
             });

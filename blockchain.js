@@ -139,8 +139,17 @@ export async function updateNFTMetadata(recipientNFT, traitType, newTraitValue, 
         });
 
         if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.error || 'Edge function failed');
+            let errorMessage = `Edge function failed with status ${response.status}`;
+            try {
+                const errorData = await response.json();
+                errorMessage = errorData.error || errorData.details || errorMessage;
+                console.error('❌ Edge function error details:', errorData);
+            } catch (parseError) {
+                const errorText = await response.text();
+                console.error('❌ Edge function error (non-JSON):', errorText);
+                errorMessage = errorText || errorMessage;
+            }
+            throw new Error(errorMessage);
         }
 
         const result = await response.json();

@@ -70,35 +70,44 @@ Deno.serve(async (req: Request) => {
 
     // STEP 1: Upload composite image to Pinata
     console.log("📸 Uploading composite image to Pinata...");
-    const base64Data = compositeImageDataUrl.includes(",")
-      ? compositeImageDataUrl.split(",")[1]
-      : compositeImageDataUrl;
+    let imageUrl, imageIpfsHash;
+    try {
+      const base64Data = compositeImageDataUrl.includes(",")
+        ? compositeImageDataUrl.split(",")[1]
+        : compositeImageDataUrl;
 
-    const imageBytes = Uint8Array.from(atob(base64Data), (c) => c.charCodeAt(0));
-    const imageBlob = new Blob([imageBytes], { type: "image/png" });
+      console.log("📊 Image size:", base64Data.length, "bytes (base64)");
+      const imageBytes = Uint8Array.from(atob(base64Data), (c) => c.charCodeAt(0));
+      console.log("📊 Image size:", imageBytes.length, "bytes (raw)");
+      const imageBlob = new Blob([imageBytes], { type: "image/png" });
 
-    const imageFormData = new FormData();
-    imageFormData.append("file", imageBlob, "trait-swap.png");
+      const imageFormData = new FormData();
+      imageFormData.append("file", imageBlob, "trait-swap.png");
 
-    const imageUploadResponse = await fetch(`${PINATA_API_URL}/pinFileToIPFS`, {
-      method: "POST",
-      headers: {
-        "pinata_api_key": pinataApiKey,
-        "pinata_secret_api_key": pinataSecret,
-      },
-      body: imageFormData,
-    });
+      console.log("⏱️ Starting Pinata upload...");
+      const imageUploadResponse = await fetch(`${PINATA_API_URL}/pinFileToIPFS`, {
+        method: "POST",
+        headers: {
+          "pinata_api_key": pinataApiKey,
+          "pinata_secret_api_key": pinataSecret,
+        },
+        body: imageFormData,
+      });
 
-    if (!imageUploadResponse.ok) {
-      const errorText = await imageUploadResponse.text();
-      throw new Error(`Image upload failed: ${imageUploadResponse.status} - ${errorText}`);
+      if (!imageUploadResponse.ok) {
+        const errorText = await imageUploadResponse.text();
+        throw new Error(`Image upload failed: ${imageUploadResponse.status} - ${errorText}`);
+      }
+
+      const imageResult = await imageUploadResponse.json();
+      imageIpfsHash = imageResult.IpfsHash;
+      imageUrl = `https://ipfs.io/ipfs/${imageIpfsHash}`;
+
+      console.log("✅ Image uploaded:", imageUrl);
+    } catch (error) {
+      console.error("❌ Image upload step failed:", error);
+      throw new Error(`Image upload failed: ${error.message}`);
     }
-
-    const imageResult = await imageUploadResponse.json();
-    const imageIpfsHash = imageResult.IpfsHash;
-    const imageUrl = `https://ipfs.io/ipfs/${imageIpfsHash}`;
-
-    console.log("✅ Image uploaded:", imageUrl);
 
     // STEP 2: Fetch current NFT metadata from Helius
     console.log("📥 Fetching current metadata from Helius...");
@@ -159,53 +168,68 @@ Deno.serve(async (req: Request) => {
 
     // STEP 5: Upload new metadata to Pinata
     console.log("📤 Uploading metadata to Pinata...");
-    const metadataUploadResponse = await fetch(`${PINATA_API_URL}/pinJSONToIPFS`, {
-      method: "POST",
-      headers: {
-        "pinata_api_key": pinataApiKey,
-        "pinata_secret_api_key": pinataSecret,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        pinataContent: updatedMetadata,
-        pinataMetadata: {
-          name: "TrapStars Trait Swap Metadata",
+    let metadataUrl, metadataIpfsHash;
+    try {
+      const metadataUploadResponse = await fetch(`${PINATA_API_URL}/pinJSONToIPFS`, {
+        method: "POST",
+        headers: {
+          "pinata_api_key": pinataApiKey,
+          "pinata_secret_api_key": pinataSecret,
+          "Content-Type": "application/json",
         },
-      }),
-    });
+        body: JSON.stringify({
+          pinataContent: updatedMetadata,
+          pinataMetadata: {
+            name: "TrapStars Trait Swap Metadata",
+          },
+        }),
+      });
 
-    if (!metadataUploadResponse.ok) {
-      const errorText = await metadataUploadResponse.text();
-      throw new Error(`Metadata upload failed: ${metadataUploadResponse.status} - ${errorText}`);
+      if (!metadataUploadResponse.ok) {
+        const errorText = await metadataUploadResponse.text();
+        throw new Error(`Metadata upload failed: ${metadataUploadResponse.status} - ${errorText}`);
+      }
+
+      const metadataResult = await metadataUploadResponse.json();
+      metadataIpfsHash = metadataResult.IpfsHash;
+      metadataUrl = `https://ipfs.io/ipfs/${metadataIpfsHash}`;
+
+      console.log("✅ Metadata uploaded:", metadataUrl);
+    } catch (error) {
+      console.error("❌ Metadata upload step failed:", error);
+      throw new Error(`Metadata upload failed: ${error.message}`);
     }
-
-    const metadataResult = await metadataUploadResponse.json();
-    const metadataIpfsHash = metadataResult.IpfsHash;
-    const metadataUrl = `https://ipfs.io/ipfs/${metadataIpfsHash}`;
-
-    console.log("✅ Metadata uploaded:", metadataUrl);
 
     // STEP 6: Update NFT on-chain using NEW wallet as authority
     console.log("⛓️ Updating NFT on-chain...");
-    const privateKeyArray = new Uint8Array(JSON.parse(updateAuthorityPrivateKey));
-    const web3Keypair = Keypair.fromSecretKey(privateKeyArray);
-    const umiKeypair = fromWeb3JsKeypair(web3Keypair);
+    let signature;
+    try {
+      const privateKeyArray = new Uint8Array(JSON.parse(updateAuthorityPrivateKey));
+      const web3Keypair = Keypair.fromSecretKey(privateKeyArray);
+      const umiKeypair = fromWeb3JsKeypair(web3Keypair);
 
-    const umi = createUmi(rpcEndpoint);
-    const newWalletSigner = createSignerFromKeypair(umi, umiKeypair);
-    umi.use(signerIdentity(newWalletSigner));
+      const umi = createUmi(rpcEndpoint);
+      const newWalletSigner = createSignerFromKeypair(umi, umiKeypair);
+      umi.use(signerIdentity(newWalletSigner));
 
-    console.log("🔑 Using NEW authority wallet:", newWalletSigner.publicKey);
+      console.log("🔑 Using NEW authority wallet:", newWalletSigner.publicKey);
+      console.log("📝 Updating asset:", recipientNFT);
+      console.log("📝 Collection:", COLLECTION_ADDRESS);
+      console.log("📝 New URI:", metadataUrl);
 
-    const tx = await updateV1(umi, {
-      asset: publicKey(recipientNFT),
-      collection: publicKey(COLLECTION_ADDRESS),
-      newUri: metadataUrl,
-    }).sendAndConfirm(umi);
+      const tx = await updateV1(umi, {
+        asset: publicKey(recipientNFT),
+        collection: publicKey(COLLECTION_ADDRESS),
+        newUri: metadataUrl,
+      }).sendAndConfirm(umi);
 
-    const signature = tx.signature.toString();
+      signature = tx.signature.toString();
 
-    console.log("✅ NFT updated on-chain:", signature);
+      console.log("✅ NFT updated on-chain:", signature);
+    } catch (error) {
+      console.error("❌ On-chain update failed:", error);
+      throw new Error(`On-chain update failed: ${error.message}`);
+    }
 
     return new Response(
       JSON.stringify({
@@ -224,10 +248,12 @@ Deno.serve(async (req: Request) => {
     );
   } catch (error) {
     console.error("❌ Trait swap failed:", error);
+    console.error("Error stack:", error.stack);
     return new Response(
       JSON.stringify({
         error: error.message || "Failed to swap trait",
         details: error.toString(),
+        stack: error.stack,
       }),
       {
         status: 500,
