@@ -138,7 +138,6 @@ function setupEventListeners() {
     document.getElementById('refreshBtn').addEventListener('click', () => fetchUserNFTs(state.walletAddress));
     document.getElementById('backToSelectionBtn').addEventListener('click', backToSelection);
     document.getElementById('previewCustomizeBtn').addEventListener('click', previewCustomization);
-    document.getElementById('confirmCustomizeBtn').addEventListener('click', confirmCustomization);
 
     // Mode selection listeners
     document.getElementById('playgroundModeBtn').addEventListener('click', () => selectMode('playground'));
