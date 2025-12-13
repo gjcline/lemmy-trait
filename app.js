@@ -78,7 +78,7 @@ async function init() {
                 reimbursementWallet: import.meta.env.VITE_REIMBURSEMENT_WALLET || import.meta.env.VITE_UPDATE_AUTHORITY,
                 collectionWallet: import.meta.env.VITE_COLLECTION_WALLET || import.meta.env.VITE_FEE_RECIPIENT_WALLET,
                 rpcEndpoint: rpcEndpoint,
-                layerOrder: JSON.parse(import.meta.env.VITE_LAYER_ORDER || '["background","body","shirt","mouth","face","eyes","eyebrows","hair","accessories","iceout chain","eyewear","meme","headwear","weapons"]'),
+                layerOrder: JSON.parse(import.meta.env.VITE_LAYER_ORDER || '["background","body","shirt","mouth","face","eyes","eyebrows","hair","iceout chain","accessories","eyewear","meme","headwear","weapons"]'),
                 optionalLayers: JSON.parse(import.meta.env.VITE_OPTIONAL_LAYERS || '["background","face","eyewear","headwear","accessories","weapons","iceout chain","meme"]'),
                 imageSize: parseInt(import.meta.env.VITE_IMAGE_SIZE || '1750'),
                 feeRecipientWallet: import.meta.env.VITE_FEE_RECIPIENT_WALLET,
@@ -700,12 +700,8 @@ function openCustomizePage() {
     
     traitSelectors.innerHTML = traitHTML;
     
-    // Reset preview and confirm button
+    // Reset preview
     hideElement(document.getElementById('previewDisplay'));
-    const confirmBtn = document.getElementById('confirmCustomizeBtn');
-    confirmBtn.disabled = true;
-    confirmBtn.classList.add('opacity-50', 'cursor-not-allowed');
-    confirmBtn.classList.remove('opacity-100');
 }
 
 // Update custom trait selection
@@ -716,19 +712,12 @@ window.updateCustomTrait = (traitType, value) => {
         state.customTraits[traitType] = value;
     }
     console.log('Updated custom traits:', state.customTraits);
-    
-    // Disable confirm button when traits change (need to preview again)
-    const confirmBtn = document.getElementById('confirmCustomizeBtn');
-    if (confirmBtn && !confirmBtn.disabled) {
-        confirmBtn.disabled = true;
-        confirmBtn.classList.add('opacity-50', 'cursor-not-allowed');
-        confirmBtn.classList.remove('opacity-100');
-        // Hide old preview since traits changed
-        hideElement(document.getElementById('previewDisplay'));
-        if (state.previewImage) {
-            URL.revokeObjectURL(state.previewImage);
-            state.previewImage = null;
-        }
+
+    // Hide old preview since traits changed
+    hideElement(document.getElementById('previewDisplay'));
+    if (state.previewImage) {
+        URL.revokeObjectURL(state.previewImage);
+        state.previewImage = null;
     }
 };
 
@@ -781,14 +770,6 @@ async function previewCustomization() {
         previewImage.src = previewUrl;
         showElement(previewDisplay);
 
-        // Enable confirm button
-        const confirmBtn = document.getElementById('confirmCustomizeBtn');
-        if (confirmBtn) {
-            confirmBtn.disabled = false;
-            confirmBtn.classList.remove('opacity-50', 'cursor-not-allowed');
-            confirmBtn.classList.add('opacity-100');
-        }
-
         showStatus('✅ Preview generated! You can preview again after making changes.', 'info');
     } catch (err) {
         console.error('Preview error:', err);
@@ -822,28 +803,61 @@ async function generateCustomImage() {
     return generateImageFromTraits(updatedAttributes);
 }
 
-// Confirm and execute customization
+// Generate another random Trap Star
 async function confirmCustomization() {
-    if (!state.previewImage) {
-        alert('Please preview your changes first!');
-        return;
+    try {
+        // Generate random traits
+        const randomTraits = {};
+
+        for (const layer of config.layerOrder) {
+            if (state.traitLayers[layer] && state.traitLayers[layer].length > 0) {
+                // For optional layers, randomly decide if we want NONE or a real value
+                if (config.optionalLayers.includes(layer) && Math.random() < 0.3) {
+                    const noneOption = state.traitLayers[layer].find(t => t.name.toUpperCase() === 'NONE');
+                    if (noneOption) {
+                        randomTraits[layer] = noneOption.name;
+                        continue;
+                    }
+                }
+
+                // Pick a random trait
+                const randomIndex = Math.floor(Math.random() * state.traitLayers[layer].length);
+                randomTraits[layer] = state.traitLayers[layer][randomIndex].name;
+            }
+        }
+
+        // Update state
+        state.customTraits = randomTraits;
+
+        // Update all dropdowns
+        for (const [layer, value] of Object.entries(randomTraits)) {
+            const select = document.getElementById(`trait-${layer}`);
+            if (select) {
+                select.value = value;
+            }
+        }
+
+        // Auto-preview the new random selection
+        showFullPageLoading('Generating new Trap Star...', 'Creating random traits');
+
+        const imageBlob = await generatePreviewImage();
+        const previewUrl = URL.createObjectURL(imageBlob);
+        state.previewImage = imageBlob;
+
+        const previewDisplay = document.getElementById('previewDisplay');
+        const previewImage = document.getElementById('previewImage');
+
+        previewImage.src = previewUrl;
+        showElement(previewDisplay);
+
+        hideFullPageLoading();
+
+        console.log('✅ New random Trap Star generated');
+    } catch (error) {
+        hideFullPageLoading();
+        console.error('Failed to generate new Trap Star:', error);
+        alert('Failed to generate new Trap Star. Please try again.');
     }
-    
-    const confirmed = confirm(
-        `⚠️ Confirm Customization ⚠️\n\n` +
-        `This will update: ${state.selectedNFT.name}\n` +
-        `With your custom trait selections.\n\n` +
-        `This action will cost SOL for:\n` +
-        `- Arweave uploads (~0.01 SOL)\n` +
-        `- Transaction fees (~0.001 SOL)\n\n` +
-        `Continue?`
-    );
-    
-    if (!confirmed) return;
-    
-    // TODO: Implement blockchain update
-    alert('Blockchain update functionality coming soon!');
-    backToSelection();
 }
 
 // Generate new image with trait swapped
