@@ -624,6 +624,11 @@ function renderNFTSelection() {
                     </div>
                 `).join('')}
             </div>
+            <div class="text-center mt-12">
+                <button onclick="backToHome()" class="text-gray-400 hover:text-white transition-colors text-sm">
+                    ← Back to Home
+                </button>
+            </div>
         </div>
     `;
 
@@ -726,6 +731,21 @@ function backToSelection() {
     state.selectedNFT = null;
     renderNFTSelection();
 }
+
+// Back to home (mode selection)
+function backToHome() {
+    hideElement(document.getElementById('customizePage'));
+    hideElement(document.getElementById('content'));
+    hideElement(document.getElementById('swapPage'));
+    showElement(document.getElementById('modeSelection'));
+    state.customTraits = {};
+    state.selectedNFT = null;
+    state.mode = null;
+    showStatus('Choose your mode', 'info');
+}
+
+// Make backToHome globally accessible
+window.backToHome = backToHome;
 
 // Preview customization
 async function previewCustomization() {
