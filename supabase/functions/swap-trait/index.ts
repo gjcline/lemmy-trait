@@ -79,10 +79,10 @@ Deno.serve(async (req: Request) => {
       console.log("📊 Image size:", base64Data.length, "bytes (base64)");
       const imageBytes = Uint8Array.from(atob(base64Data), (c) => c.charCodeAt(0));
       console.log("📊 Image size:", imageBytes.length, "bytes (raw)");
-      const imageBlob = new Blob([imageBytes], { type: "image/png" });
+      const imageBlob = new Blob([imageBytes], { type: "image/jpeg" });
 
       const imageFormData = new FormData();
-      imageFormData.append("file", imageBlob, "trait-swap.png");
+      imageFormData.append("file", imageBlob, "trait-swap.jpg");
 
       console.log("⏱️ Starting Pinata upload...");
       const imageUploadResponse = await fetch(`${PINATA_API_URL}/pinFileToIPFS`, {
@@ -159,7 +159,7 @@ Deno.serve(async (req: Request) => {
       image: imageUrl,
       attributes: updatedAttributes,
       properties: {
-        files: [{ uri: imageUrl, type: "image/png" }],
+        files: [{ uri: imageUrl, type: "image/jpeg" }],
         category: "image",
       },
     };

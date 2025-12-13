@@ -980,9 +980,9 @@ async function regenerateImage() {
                 reject(new Error('Failed to generate image blob'));
                 return;
             }
-            console.log('✅ Image generated:', blob);
+            console.log('✅ Image generated:', blob.size, 'bytes');
             resolve(blob);
-        }, 'image/png');
+        }, 'image/jpeg', 0.85);
     });
 }
 
@@ -1362,7 +1362,7 @@ async function generateImageFromTraits(attributes, options = {}) {
                 console.log('✅ Image blob generated:', blob.size, 'bytes');
                 resolve(blob);
             }
-        }, 'image/png');
+        }, 'image/jpeg', 0.85);
     });
 }
 
