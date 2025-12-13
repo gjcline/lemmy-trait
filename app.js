@@ -34,7 +34,6 @@ const state = {
     traitLayers: {},
     selectedNFT: null,
     customTraits: {}, // Store selected custom traits
-    previewImage: null,
     mode: null, // 'playground' or 'swap'
     // Swap-specific state
     swap: {
@@ -436,7 +435,6 @@ function backToModeSelection() {
     state.mode = null;
     state.selectedNFT = null;
     state.customTraits = {};
-    state.previewImage = null;
     state.swap = {
         step: 1,
         donorNFT: null,
@@ -637,7 +635,6 @@ function renderNFTSelection() {
 window.selectNFTToCustomize = (idx) => {
     state.selectedNFT = state.nfts[idx];
     state.customTraits = {}; // Reset custom traits
-    state.previewImage = null; // Reset preview
     console.log('Selected NFT to customize:', state.selectedNFT);
     openCustomizePage();
 };
@@ -710,9 +707,6 @@ function openCustomizePage() {
     }).join('');
     
     traitSelectors.innerHTML = traitHTML;
-    
-    // Reset preview
-    hideElement(document.getElementById('previewDisplay'));
 }
 
 // Update custom trait selection
@@ -723,13 +717,6 @@ window.updateCustomTrait = (traitType, value) => {
         state.customTraits[traitType] = value;
     }
     console.log('Updated custom traits:', state.customTraits);
-
-    // Hide old preview since traits changed
-    hideElement(document.getElementById('previewDisplay'));
-    if (state.previewImage) {
-        URL.revokeObjectURL(state.previewImage);
-        state.previewImage = null;
-    }
 };
 
 // Back to selection
@@ -737,7 +724,6 @@ function backToSelection() {
     hideElement(document.getElementById('customizePage'));
     showElement(document.getElementById('content'));
     state.customTraits = {};
-    state.previewImage = null;
     state.selectedNFT = null;
     renderNFTSelection();
 }
@@ -751,43 +737,66 @@ async function previewCustomization() {
 
     try {
         console.log('Starting preview generation...');
-        showStatus('Generating preview...', 'info');
+        showStatus('Applying changes...', 'info');
+
+        // Generate updated attributes with custom traits
+        const updatedAttributes = state.selectedNFT.attributes.map(attr => {
+            const customValue = state.customTraits[attr.trait_type.toLowerCase()];
+            if (customValue !== undefined) {
+                return { ...attr, value: customValue };
+            }
+            return attr;
+        });
+
+        // Add any new traits that weren't in original attributes
+        for (const [traitType, value] of Object.entries(state.customTraits)) {
+            if (!updatedAttributes.find(a => a.trait_type.toLowerCase() === traitType.toLowerCase())) {
+                updatedAttributes.push({ trait_type: traitType, value: value });
+            }
+        }
 
         // Generate image with custom traits
-        const previewBlob = await generateCustomImage();
+        const previewBlob = await generateImageFromTraits(updatedAttributes);
 
         if (!previewBlob) {
             throw new Error('Failed to generate preview blob');
         }
 
-        // Clean up old preview URL if exists
-        if (state.previewImage) {
-            URL.revokeObjectURL(state.previewImage);
+        // Clean up old image URL if it's a generated one (not from NFT metadata)
+        if (state.selectedNFT.image && state.selectedNFT.image.startsWith('blob:')) {
+            URL.revokeObjectURL(state.selectedNFT.image);
         }
 
-        const previewUrl = URL.createObjectURL(previewBlob);
-        state.previewImage = previewUrl;
+        const newImageUrl = URL.createObjectURL(previewBlob);
 
-        console.log('Preview URL created:', previewUrl);
+        console.log('New image URL created:', newImageUrl);
 
-        // Show preview
-        const previewDisplay = document.getElementById('previewDisplay');
-        const previewImage = document.getElementById('previewImage');
+        // Update state with new image and attributes
+        state.selectedNFT.image = newImageUrl;
+        state.selectedNFT.attributes = updatedAttributes;
 
-        if (!previewDisplay || !previewImage) {
-            throw new Error('Preview display elements not found in DOM');
-        }
+        // Update the nftDisplay with new image and traits
+        const nftDisplay = document.getElementById('nftDisplay');
+        nftDisplay.innerHTML = `
+            <h3 class="text-2xl font-semibold mb-4">${state.selectedNFT.name}</h3>
+            <img src="${newImageUrl}" alt="${state.selectedNFT.name}" class="w-full max-w-md mx-auto rounded-lg shadow-lg mb-4">
+            <div class="text-sm text-purple-200 space-y-1">
+                ${updatedAttributes.slice(0, 5).map(attr => `
+                    <div class="flex justify-between">
+                        <span class="capitalize">${attr.trait_type}:</span>
+                        <span class="font-semibold">${attr.value}</span>
+                    </div>
+                `).join('')}
+            </div>
+        `;
 
-        previewImage.src = previewUrl;
-        showElement(previewDisplay);
-
-        showStatus('✅ Preview generated! You can preview again after making changes.', 'info');
+        showStatus('✅ Changes applied! You can continue customizing.', 'info');
     } catch (err) {
         console.error('Preview error:', err);
         console.error('Error stack:', err.stack);
         const errorMsg = err.message || 'Unknown error occurred';
-        showStatus('Error generating preview: ' + errorMsg, 'error');
-        alert('Error generating preview:\n\n' + errorMsg + '\n\nCheck the browser console (F12) for detailed logs.');
+        showStatus('Error applying changes: ' + errorMsg, 'error');
+        alert('Error applying changes:\n\n' + errorMsg + '\n\nCheck the browser console (F12) for detailed logs.');
     }
 }
 
@@ -848,18 +857,46 @@ async function confirmCustomization() {
             }
         }
 
-        // Auto-preview the new random selection
+        // Auto-generate the new random selection
         showFullPageLoading('Generating new Trap Star...', 'Creating random traits');
 
-        const imageBlob = await generatePreviewImage();
-        const previewUrl = URL.createObjectURL(imageBlob);
-        state.previewImage = imageBlob;
+        // Generate updated attributes with random traits
+        const updatedAttributes = state.selectedNFT.attributes.map(attr => {
+            const randomValue = randomTraits[attr.trait_type.toLowerCase()];
+            if (randomValue !== undefined) {
+                return { ...attr, value: randomValue };
+            }
+            return attr;
+        });
 
-        const previewDisplay = document.getElementById('previewDisplay');
-        const previewImage = document.getElementById('previewImage');
+        // Generate image with random traits
+        const imageBlob = await generateImageFromTraits(updatedAttributes);
 
-        previewImage.src = previewUrl;
-        showElement(previewDisplay);
+        // Clean up old image URL if it's a generated one
+        if (state.selectedNFT.image && state.selectedNFT.image.startsWith('blob:')) {
+            URL.revokeObjectURL(state.selectedNFT.image);
+        }
+
+        const newImageUrl = URL.createObjectURL(imageBlob);
+
+        // Update state with new image and attributes
+        state.selectedNFT.image = newImageUrl;
+        state.selectedNFT.attributes = updatedAttributes;
+
+        // Update the nftDisplay with new image and traits
+        const nftDisplay = document.getElementById('nftDisplay');
+        nftDisplay.innerHTML = `
+            <h3 class="text-2xl font-semibold mb-4">${state.selectedNFT.name}</h3>
+            <img src="${newImageUrl}" alt="${state.selectedNFT.name}" class="w-full max-w-md mx-auto rounded-lg shadow-lg mb-4">
+            <div class="text-sm text-purple-200 space-y-1">
+                ${updatedAttributes.slice(0, 5).map(attr => `
+                    <div class="flex justify-between">
+                        <span class="capitalize">${attr.trait_type}:</span>
+                        <span class="font-semibold">${attr.value}</span>
+                    </div>
+                `).join('')}
+            </div>
+        `;
 
         hideFullPageLoading();
 
