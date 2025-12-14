@@ -3,7 +3,13 @@ import './shader-background.js';
 const ADMIN_WALLETS = [
     import.meta.env.VITE_ADMIN_WALLET_1,
     import.meta.env.VITE_ADMIN_WALLET_2
-];
+].filter(Boolean);
+
+console.log('Admin wallets configured:', ADMIN_WALLETS.length);
+console.log('Environment check:', {
+    hasWallet1: !!import.meta.env.VITE_ADMIN_WALLET_1,
+    hasWallet2: !!import.meta.env.VITE_ADMIN_WALLET_2
+});
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -85,6 +91,16 @@ async function connectWallet() {
 
         const response = await window.solana.connect();
         wallet = response.publicKey.toString();
+
+        console.log('Connected wallet:', wallet);
+        console.log('Checking against admin wallets:', ADMIN_WALLETS);
+        console.log('Is admin?', ADMIN_WALLETS.includes(wallet));
+
+        if (ADMIN_WALLETS.length === 0) {
+            alert('Admin wallets not configured! Check Netlify environment variables.');
+            wallet = null;
+            return;
+        }
 
         if (!ADMIN_WALLETS.includes(wallet)) {
             document.getElementById('deniedWallet').textContent = wallet;
