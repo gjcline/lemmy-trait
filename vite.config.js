@@ -1,6 +1,16 @@
+import { resolve } from 'path';
+
 export default {
   server: {
     port: 8001
+  },
+  build: {
+    rollupOptions: {
+      input: {
+        main: resolve(__dirname, 'index.html'),
+        admin: resolve(__dirname, 'admin.html')
+      }
+    }
   },
   resolve: {
     alias: {
