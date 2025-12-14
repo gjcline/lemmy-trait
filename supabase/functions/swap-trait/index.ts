@@ -131,25 +131,50 @@ Deno.serve(async (req: Request) => {
 
     console.log("✅ Current metadata fetched");
 
-    // STEP 3: Update only the specified trait
+    // STEP 3: Update or add the specified trait
     console.log("🔧 Updating trait in metadata...");
     const currentMetadata = asset.content.metadata;
     const currentAttributes = asset.content.metadata.attributes || [];
 
-    // Update the specific trait in attributes array
-    const updatedAttributes = currentAttributes.map((attr: any) => {
-      // Update the swapped trait
-      if (attr.trait_type === traitType) {
-        return { ...attr, value: newTraitValue };
-      }
-      // Update Logo trait if new logo is being used
-      if (attr.trait_type === "Logo" && useNewLogo === true) {
-        return { ...attr, value: "Uzi" };
-      }
-      return attr;
-    });
+    // Update existing trait or add new trait
+    const updatedAttributes = [...currentAttributes];
 
-    console.log("📋 Updated attributes:", updatedAttributes);
+    // Find if the trait already exists
+    const existingTraitIndex = updatedAttributes.findIndex(
+      (attr: any) => attr.trait_type === traitType
+    );
+
+    if (existingTraitIndex >= 0) {
+      // Update existing trait
+      updatedAttributes[existingTraitIndex] = {
+        ...updatedAttributes[existingTraitIndex],
+        value: newTraitValue,
+      };
+      console.log(`✏️ Updated existing trait: ${traitType} → ${newTraitValue}`);
+    } else {
+      // Add new trait (it didn't exist before)
+      updatedAttributes.push({
+        trait_type: traitType,
+        value: newTraitValue,
+      });
+      console.log(`➕ Added new trait: ${traitType} → ${newTraitValue}`);
+    }
+
+    // Update Logo trait if new logo is being used
+    if (useNewLogo === true) {
+      const logoIndex = updatedAttributes.findIndex(
+        (attr: any) => attr.trait_type === "Logo"
+      );
+      if (logoIndex >= 0) {
+        updatedAttributes[logoIndex] = {
+          ...updatedAttributes[logoIndex],
+          value: "Uzi",
+        };
+        console.log("🔄 Updated Logo trait to: Uzi");
+      }
+    }
+
+    console.log("📋 Final attributes:", updatedAttributes);
 
     // STEP 4: Create new metadata with updated trait and image
     const updatedMetadata = {
