@@ -1203,9 +1203,9 @@ function displaySignature(label, signature) {
     try {
         let sig = signature;
 
-        // If signature is an array, convert to base58
-        if (Array.isArray(signature)) {
-            sig = bs58.encode(new Uint8Array(signature));
+        // If signature is an array or Uint8Array, convert to base58
+        if (Array.isArray(signature) || signature instanceof Uint8Array) {
+            sig = bs58.encode(signature instanceof Uint8Array ? signature : new Uint8Array(signature));
         }
 
         return `
@@ -1246,8 +1246,8 @@ function showSwapSuccess(result) {
                 <h3 class="text-xl font-semibold mb-4">Transaction Details</h3>
                 <div class="space-y-3 text-left">
                     ${displaySignature('Service Fee Payment', result.serviceFeeSignature)}
-                    ${displaySignature('Reimbursement Fee Payment', result.reimbursementFeeSignature)}
-                    ${displaySignature('NFT Transfer to Collection Wallet', result.nftTransferSignature)}
+                    ${displaySignature('Update Fee Payment', result.reimbursementFeeSignature)}
+                    ${displaySignature('NFT Transfer to Burn Wallet', result.nftTransferSignature)}
                     ${displaySignature('Metadata Update', result.metadataUpdateSignature)}
                     <div>
                         <p class="text-xs text-gray-400 mb-1">New Image URL</p>
