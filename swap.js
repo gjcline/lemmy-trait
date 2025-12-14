@@ -163,8 +163,8 @@ export async function executeSwap(walletAdapter, donorNFT, recipientNFT, trait, 
             });
         }
 
-        // STEP 2: Reimbursement Fee Transfer
-        updateProgress(2, `Transferring reimbursement fee (${reimbursementFee} SOL)...`);
+        // STEP 2: Update Fee Transfer
+        updateProgress(2, `Transferring update fee (${reimbursementFee} SOL)...`);
         results.reimbursementFeeSignature = await transferSOL(
             walletAdapter,
             reimbursementWallet,
@@ -177,8 +177,8 @@ export async function executeSwap(walletAdapter, donorNFT, recipientNFT, trait, 
             });
         }
 
-        // STEP 3: Transfer Donor NFT to Collection Wallet
-        updateProgress(3, 'Transferring donor NFT to collection wallet...');
+        // STEP 3: Transfer Donor NFT to Burn Wallet
+        updateProgress(3, 'Transferring donor NFT to Burn Wallet...');
         results.nftTransferSignature = await transferNFT(
             walletAdapter,
             donorNFT.mint,

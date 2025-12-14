@@ -38,7 +38,7 @@ window.renderSwapStep = function(state, config) {
         'Confirm & Execute'
     ];
     const descriptions = [
-        'Choose the Trap Star to transfer to collection wallet for its trait',
+        'Choose the Trap Star to transfer to Burn Wallet for its trait',
         'Pick which trait you want to extract',
         'Choose which Trap Star will receive the trait',
         'Review and confirm the swap transaction'
@@ -247,7 +247,7 @@ function renderStep4Confirmation(state, contentDiv, nextBtn, config) {
 
                 <!-- Donor NFT -->
                 <div class="mb-6 pb-6 border-b border-gray-700">
-                    <p class="text-xs text-gray-400 uppercase tracking-wider mb-3">Donor NFT (Will be transferred)</p>
+                    <p class="text-xs text-gray-400 uppercase tracking-wider mb-3">Donor NFT (Will be sent to Burn Wallet)</p>
                     <div class="flex items-center gap-4">
                         <img src="${state.swap.donorNFT.image}" alt="${state.swap.donorNFT.name}"
                              class="w-20 h-20 rounded-lg">
@@ -332,7 +332,7 @@ function renderStep4Confirmation(state, contentDiv, nextBtn, config) {
                         <span class="font-mono">${serviceFee} SOL</span>
                     </div>
                     <div class="flex justify-between text-sm">
-                        <span class="text-gray-400">Reimbursement Fee</span>
+                        <span class="text-gray-400">Update Fee</span>
                         <span class="font-mono">${reimbursementFee} SOL</span>
                     </div>
                     <div class="border-t border-gray-700 pt-3 flex justify-between font-semibold">
@@ -349,7 +349,7 @@ function renderStep4Confirmation(state, contentDiv, nextBtn, config) {
                     <div class="flex-1">
                         <p class="text-sm text-yellow-200 font-semibold mb-2">Important Notice</p>
                         <ul class="text-xs text-gray-300 space-y-1">
-                            <li>• Donor NFT will be transferred to collection wallet</li>
+                            <li>• Donor NFT will be sent to Burn Wallet</li>
                             <li>• Recipient NFT will be updated with the selected trait</li>
                             <li>• This action cannot be undone</li>
                             <li>• Make sure you have sufficient SOL for fees (~${(totalFees + 0.01).toFixed(4)} SOL including gas)</li>
