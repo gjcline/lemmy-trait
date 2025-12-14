@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - Trap Stars</title>
+    <link rel="icon" type="image/png" href="/just-uzi.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link rel="stylesheet" href="admin-styles.css">
+</head>
+<body class="text-white bg-[#0a0a0a]">
+    <!-- Shader Background -->
+    <div id="shader-background"></div>
+
+    <div id="app" class="relative z-10">
+        <!-- Login Screen -->
+        <div id="loginScreen" class="min-h-screen flex items-center justify-center p-4">
+            <div class="glass rounded-2xl p-8 max-w-md w-full text-center">
+                <div class="text-5xl mb-6">🔐</div>
+                <h1 class="text-3xl font-semibold mb-4">Admin Dashboard</h1>
+                <p class="text-gray-400 mb-8">Connect your admin wallet to access the dashboard</p>
+                <button id="adminConnectBtn" class="btn-primary w-full py-4 rounded-xl text-lg font-semibold">
+                    Connect Wallet
+                </button>
+                <p class="text-xs text-gray-500 mt-6">Only authorized admin wallets can access this dashboard</p>
+            </div>
+        </div>
+
+        <!-- Access Denied Screen -->
+        <div id="accessDeniedScreen" class="min-h-screen flex items-center justify-center p-4 hidden">
+            <div class="glass rounded-2xl p-8 max-w-md w-full text-center border-red-500/30">
+                <div class="text-5xl mb-6">🚫</div>
+                <h1 class="text-3xl font-semibold mb-4 text-red-400">Access Denied</h1>
+                <p class="text-gray-400 mb-6">Your wallet address is not authorized to access the admin dashboard.</p>
+                <p class="text-sm text-gray-500 font-mono mb-8 break-all" id="deniedWallet"></p>
+                <button id="tryAgainBtn" class="btn-secondary px-6 py-3 rounded-xl">
+                    Try Different Wallet
+                </button>
+            </div>
+        </div>
+
+        <!-- Admin Dashboard -->
+        <div id="dashboard" class="hidden">
+            <!-- Header -->
+            <header class="glass-header sticky top-0 z-50 border-b border-white/10">
+                <div class="container mx-auto px-4 py-4">
+                    <div class="flex justify-between items-center flex-wrap gap-4">
+                        <div>
+                            <h1 class="text-2xl font-semibold">Admin Dashboard</h1>
+                            <p class="text-xs text-gray-400 mt-1">Transaction Monitoring & Management</p>
+                        </div>
+                        <div class="flex items-center gap-4">
+                            <div class="text-right">
+                                <p class="text-xs text-gray-400 uppercase tracking-wider">Admin Wallet</p>
+                                <p id="adminWalletAddress" class="font-mono text-sm"></p>
+                            </div>
+                            <button id="adminLogoutBtn" class="btn-secondary px-4 py-2 rounded-lg text-sm">
+                                Logout
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <div class="container mx-auto px-4 py-8 max-w-7xl">
+                <!-- Stats Cards -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                    <div class="glass rounded-xl p-6">
+                        <div class="flex items-center justify-between mb-2">
+                            <p class="text-xs text-gray-400 uppercase tracking-wider">Total Today</p>
+                            <span class="text-2xl">📊</span>
+                        </div>
+                        <p class="text-3xl font-bold" id="statsToday">0</p>
+                        <p class="text-xs text-gray-500 mt-1">Transactions processed</p>
+                    </div>
+
+                    <div class="glass rounded-xl p-6">
+                        <div class="flex items-center justify-between mb-2">
+                            <p class="text-xs text-gray-400 uppercase tracking-wider">Success Rate</p>
+                            <span class="text-2xl">✅</span>
+                        </div>
+                        <p class="text-3xl font-bold" id="statsSuccessRate">0%</p>
+                        <p class="text-xs text-gray-500 mt-1">Completed transactions</p>
+                    </div>
+
+                    <div class="glass rounded-xl p-6">
+                        <div class="flex items-center justify-between mb-2">
+                            <p class="text-xs text-gray-400 uppercase tracking-wider">Failed</p>
+                            <span class="text-2xl">❌</span>
+                        </div>
+                        <p class="text-3xl font-bold text-red-400" id="statsFailed">0</p>
+                        <p class="text-xs text-gray-500 mt-1">Require attention</p>
+                    </div>
+
+                    <div class="glass rounded-xl p-6">
+                        <div class="flex items-center justify-between mb-2">
+                            <p class="text-xs text-gray-400 uppercase tracking-wider">Total Fees</p>
+                            <span class="text-2xl">💰</span>
+                        </div>
+                        <p class="text-3xl font-bold" id="statsTotalFees">0 SOL</p>
+                        <p class="text-xs text-gray-500 mt-1">Service fees collected</p>
+                    </div>
+                </div>
+
+                <!-- Filters & Search -->
+                <div class="glass rounded-xl p-6 mb-8">
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div>
+                            <label class="text-xs text-gray-400 uppercase tracking-wider mb-2 block">Status</label>
+                            <select id="filterStatus" class="filter-select w-full">
+                                <option value="">All Statuses</option>
+                                <option value="pending">Pending</option>
+                                <option value="completed">Completed</option>
+                                <option value="failed">Failed</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="text-xs text-gray-400 uppercase tracking-wider mb-2 block">Date Range</label>
+                            <select id="filterDateRange" class="filter-select w-full">
+                                <option value="today">Today</option>
+                                <option value="week">This Week</option>
+                                <option value="month">This Month</option>
+                                <option value="all">All Time</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="text-xs text-gray-400 uppercase tracking-wider mb-2 block">Search</label>
+                            <input type="text" id="searchInput" placeholder="Wallet or NFT address..."
+                                class="filter-select w-full">
+                        </div>
+
+                        <div class="flex items-end">
+                            <button id="failedOnlyBtn" class="w-full btn-secondary py-2.5 rounded-lg text-sm">
+                                Failed Only
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Transactions Table -->
+                <div class="glass rounded-xl overflow-hidden">
+                    <div class="overflow-x-auto">
+                        <table class="w-full">
+                            <thead class="bg-white/5 border-b border-white/10">
+                                <tr>
+                                    <th class="text-left p-4 text-xs text-gray-400 uppercase tracking-wider">Status</th>
+                                    <th class="text-left p-4 text-xs text-gray-400 uppercase tracking-wider">Date/Time</th>
+                                    <th class="text-left p-4 text-xs text-gray-400 uppercase tracking-wider">Wallet</th>
+                                    <th class="text-left p-4 text-xs text-gray-400 uppercase tracking-wider">Trait Swapped</th>
+                                    <th class="text-left p-4 text-xs text-gray-400 uppercase tracking-wider">Cost</th>
+                                    <th class="text-left p-4 text-xs text-gray-400 uppercase tracking-wider">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="transactionsTableBody" class="divide-y divide-white/5">
+                                <tr>
+                                    <td colspan="6" class="p-8 text-center text-gray-400">
+                                        <div class="spinner mx-auto mb-4"></div>
+                                        Loading transactions...
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Pagination -->
+                    <div class="border-t border-white/10 p-4 flex justify-between items-center">
+                        <p class="text-sm text-gray-400">
+                            Showing <span id="pageInfo">0-0 of 0</span> transactions
+                        </p>
+                        <div class="flex gap-2">
+                            <button id="prevPageBtn" class="btn-secondary px-4 py-2 rounded-lg text-sm" disabled>
+                                Previous
+                            </button>
+                            <button id="nextPageBtn" class="btn-secondary px-4 py-2 rounded-lg text-sm" disabled>
+                                Next
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Transaction Detail Modal -->
+    <div id="detailModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center hidden z-50 p-4">
+        <div class="glass rounded-2xl p-6 max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-start mb-6">
+                <h2 class="text-2xl font-semibold">Transaction Details</h2>
+                <button id="closeModalBtn" class="text-gray-400 hover:text-white text-2xl">×</button>
+            </div>
+            <div id="modalContent"></div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="fixed bottom-4 right-4 glass rounded-xl p-4 hidden z-50 min-w-[300px] animate-slide-up">
+        <div class="flex items-center gap-3">
+            <span id="toastIcon" class="text-2xl"></span>
+            <div class="flex-1">
+                <p id="toastMessage" class="font-semibold"></p>
+                <p id="toastSubmessage" class="text-xs text-gray-400 mt-1"></p>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="shader-background.js"></script>
+    <script type="module" src="admin.js"></script>
+</body>
+</html>

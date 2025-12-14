@@ -89,6 +89,49 @@ async function updateTransactionRecord(transactionId, updates) {
 }
 
 /**
+ * Send email notification for failed transaction
+ */
+async function sendFailureEmailNotification(transactionId, walletAddress, errorMessage, failedStep) {
+    if (!supabaseEnabled) {
+        console.log('📧 Email notifications disabled - Supabase not configured');
+        return;
+    }
+
+    try {
+        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+        const apiUrl = `${supabaseUrl}/functions/v1/send-alert-email`;
+        const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+        console.log('📧 Sending failure notification email...');
+
+        const response = await fetch(apiUrl, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${anonKey}`,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                transactionId,
+                walletAddress,
+                errorMessage,
+                failedStep
+            })
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('Failed to send email notification:', errorText);
+            return;
+        }
+
+        const result = await response.json();
+        console.log('✅ Email notification sent:', result);
+    } catch (error) {
+        console.error('Error sending email notification:', error);
+    }
+}
+
+/**
  * Execute the complete trait swap flow
  * @param {Object} walletAdapter - Phantom wallet adapter
  * @param {Object} donorNFT - NFT to transfer (donor)
@@ -113,7 +156,10 @@ export async function executeSwap(walletAdapter, donorNFT, recipientNFT, trait, 
         transactionId: null
     };
 
+    let currentStep = 0;
+
     const updateProgress = (step, message) => {
+        currentStep = step;
         console.log(`[Step ${step}] ${message}`);
         if (progressCallback) progressCallback(step, message);
     };
@@ -226,12 +272,21 @@ export async function executeSwap(walletAdapter, donorNFT, recipientNFT, trait, 
     } catch (error) {
         console.error('❌ Swap execution failed:', error);
 
-        // Mark transaction as failed
+        const failedStep = currentStep > 0 ? currentStep : null;
+
         if (results.transactionId) {
             await updateTransactionRecord(results.transactionId, {
                 status: 'failed',
-                error_message: error.message
+                error_message: error.message,
+                failed_step: failedStep
             });
+
+            await sendFailureEmailNotification(
+                results.transactionId,
+                walletAdapter.publicKey.toString(),
+                error.message,
+                failedStep
+            );
         }
 
         throw error;
