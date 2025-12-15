@@ -77,7 +77,7 @@ async function init() {
                 reimbursementWallet: import.meta.env.VITE_REIMBURSEMENT_WALLET || import.meta.env.VITE_UPDATE_AUTHORITY,
                 collectionWallet: import.meta.env.VITE_COLLECTION_WALLET || import.meta.env.VITE_FEE_RECIPIENT_WALLET,
                 rpcEndpoint: rpcEndpoint,
-                layerOrder: JSON.parse(import.meta.env.VITE_LAYER_ORDER || '["background","body","shirt","mouth","face","eyes","eyebrows","hair","iceout chain","accessories","eyewear","meme","headwear","weapons"]'),
+                layerOrder: JSON.parse(import.meta.env.VITE_LAYER_ORDER || '["background","body","shirt","face","mouth","eyes","eyebrows","hair","iceout chain","accessories","eyewear","meme","headwear","weapons"]'),
                 optionalLayers: JSON.parse(import.meta.env.VITE_OPTIONAL_LAYERS || '["background","face","eyewear","headwear","accessories","weapons","iceout chain","meme"]'),
                 imageSize: parseInt(import.meta.env.VITE_IMAGE_SIZE || '1750'),
                 feeRecipientWallet: import.meta.env.VITE_FEE_RECIPIENT_WALLET,
