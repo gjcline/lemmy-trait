@@ -1240,7 +1240,8 @@ function showSwapSuccess(result) {
         <div class="max-w-4xl mx-auto text-center fade-in">
             <div class="text-6xl mb-6">✅</div>
             <h2 class="text-4xl font-light mb-4">Swap Successful!</h2>
-            <p class="text-gray-400 mb-8">Your Trap Star has been upgraded with the new trait</p>
+            <p class="text-gray-400 mb-4">Your Trap Star has been upgraded with the new trait</p>
+            <p class="text-sm text-blue-400 mb-8">Please allow at least 2-5 minutes for changes to show up on Phantom, Magic Eden etc.</p>
 
             <div class="glass rounded-2xl p-8 mb-6">
                 <h3 class="text-xl font-semibold mb-4">Transaction Details</h3>
