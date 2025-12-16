@@ -1269,6 +1269,15 @@ function showSwapSuccess(result) {
                 </div>
             </div>
 
+            <div class="glass rounded-2xl p-6 mb-6">
+                <h3 class="text-xl font-semibold mb-4">Your New Trap Star</h3>
+                <div class="flex justify-center">
+                    <img src="${result.imageUrl}"
+                         alt="Updated Trap Star NFT"
+                         class="rounded-xl border-2 border-green-500 max-w-md w-full shadow-lg">
+                </div>
+            </div>
+
             <div class="flex gap-4 justify-center">
                 <button onclick="resetSwapFlow()" class="btn-primary px-8 py-3 rounded-xl">
                     Perform Another Swap
