@@ -1137,7 +1137,7 @@ async function executeSwap() {
         hideFullPageLoading();
 
         // Show success
-        showSwapSuccess(result);
+        showSwapSuccess(result, state.swap.recipientNFT);
 
         // Refresh NFTs
         await fetchUserNFTs(state.walletAddress);
@@ -1233,8 +1233,10 @@ function displaySignature(label, signature) {
 }
 
 // Show swap success screen
-function showSwapSuccess(result) {
+function showSwapSuccess(result, recipientNFT) {
     hideElement(document.getElementById('swapPage'));
+
+    const magicEdenUrl = recipientNFT ? `https://magiceden.us/item-details/${recipientNFT.mint}` : null;
 
     const successHTML = `
         <div class="max-w-4xl mx-auto text-center fade-in">
@@ -1271,11 +1273,22 @@ function showSwapSuccess(result) {
 
             <div class="glass rounded-2xl p-6 mb-6">
                 <h3 class="text-xl font-semibold mb-4">Your New Trap Star</h3>
-                <div class="flex justify-center">
+                <div class="flex justify-center mb-4">
                     <img src="${result.imageUrl}"
                          alt="Updated Trap Star NFT"
                          class="rounded-xl border-2 border-green-500 max-w-md w-full shadow-lg">
                 </div>
+                ${magicEdenUrl ? `
+                <a href="${magicEdenUrl}"
+                   target="_blank"
+                   rel="noopener noreferrer"
+                   class="inline-flex items-center gap-2 px-6 py-3 bg-purple-600 hover:bg-purple-700 rounded-xl font-semibold transition-colors">
+                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"></path>
+                    </svg>
+                    View on Magic Eden
+                </a>
+                ` : ''}
             </div>
 
             <div class="flex gap-4 justify-center">
