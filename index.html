@@ -224,10 +224,15 @@
             overflow: hidden;
         }
 
-        .btn-primary:hover {
+        .btn-primary:hover:not(:disabled) {
             background: linear-gradient(135deg, rgba(255,255,255,1) 0%, rgba(255,255,255,0.95) 100%);
             transform: translateY(-1px);
             box-shadow: 0 10px 30px rgba(255, 255, 255, 0.15);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
         }
 
         .btn-secondary {

@@ -759,8 +759,20 @@ async function previewCustomization() {
         return;
     }
 
+    const previewBtn = document.getElementById('previewCustomizeBtn');
+    const originalBtnText = previewBtn.innerHTML;
+
     try {
         console.log('Starting preview generation...');
+
+        previewBtn.disabled = true;
+        previewBtn.innerHTML = `
+            <div class="flex items-center justify-center gap-2">
+                <div class="w-5 h-5 border-2 border-black/20 border-t-black rounded-full animate-spin"></div>
+                <span>Generating Preview...</span>
+            </div>
+        `;
+
         showStatus('Applying changes...', 'info');
 
         // Generate updated attributes with custom traits
@@ -821,6 +833,9 @@ async function previewCustomization() {
         const errorMsg = err.message || 'Unknown error occurred';
         showStatus('Error applying changes: ' + errorMsg, 'error');
         alert('Error applying changes:\n\n' + errorMsg + '\n\nCheck the browser console (F12) for detailed logs.');
+    } finally {
+        previewBtn.disabled = false;
+        previewBtn.innerHTML = originalBtnText;
     }
 }
 
