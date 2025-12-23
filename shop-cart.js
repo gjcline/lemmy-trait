@@ -73,6 +73,11 @@ export function createCartUI(cart, container) {
     <span class="cart-count">0</span>
   `;
 
+  const continueFloatingBtn = document.createElement('button');
+  continueFloatingBtn.className = 'floating-continue-btn';
+  continueFloatingBtn.style.display = 'none';
+  continueFloatingBtn.textContent = 'Continue to Checkout →';
+
   const cartModal = document.createElement('div');
   cartModal.className = 'cart-modal';
   cartModal.style.display = 'none';
@@ -101,6 +106,7 @@ export function createCartUI(cart, container) {
 
   container.appendChild(cartButton);
   container.appendChild(cartModal);
+  container.appendChild(continueFloatingBtn);
 
   const countBadge = cartButton.querySelector('.cart-count');
   const itemsList = cartModal.querySelector('.cart-items-list');
@@ -115,6 +121,7 @@ export function createCartUI(cart, container) {
 
     countBadge.textContent = count;
     countBadge.style.display = count > 0 ? 'flex' : 'none';
+    continueFloatingBtn.style.display = count > 0 ? 'block' : 'none';
 
     if (count === 0) {
       itemsList.innerHTML = '<div class="cart-empty">Your cart is empty</div>';
@@ -150,6 +157,10 @@ export function createCartUI(cart, container) {
     cartModal.style.display = 'flex';
   });
 
+  continueFloatingBtn.addEventListener('click', () => {
+    cartModal.style.display = 'flex';
+  });
+
   closeBtn.addEventListener('click', () => {
     cartModal.style.display = 'none';
   });
@@ -163,5 +174,5 @@ export function createCartUI(cart, container) {
   cart.subscribe(updateCartDisplay);
   updateCartDisplay();
 
-  return { cartButton, cartModal, checkoutBtn };
+  return { cartButton, cartModal, checkoutBtn, continueFloatingBtn };
 }

@@ -5,7 +5,7 @@
   width: 60px;
   height: 60px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.85) 100%);
   border: none;
   cursor: pointer;
   display: flex;
@@ -18,13 +18,13 @@
 
 .cart-button:hover {
   transform: scale(1.1);
-  box-shadow: 0 6px 25px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 6px 25px rgba(255, 255, 255, 0.3);
 }
 
 .cart-button svg {
   width: 28px;
   height: 28px;
-  color: white;
+  color: #0a0a0a;
 }
 
 .cart-count {
@@ -212,10 +212,10 @@
 .cart-checkout-btn {
   width: 100%;
   padding: 16px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.85) 100%);
   border: none;
   border-radius: 12px;
-  color: white;
+  color: #0a0a0a;
   font-size: 18px;
   font-weight: bold;
   cursor: pointer;
@@ -224,7 +224,8 @@
 
 .cart-checkout-btn:hover:not(:disabled) {
   transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+  box-shadow: 0 10px 30px rgba(255, 255, 255, 0.3);
+  background: linear-gradient(135deg, rgba(255,255,255,1) 0%, rgba(255,255,255,0.95) 100%);
 }
 
 .cart-checkout-btn:disabled {
@@ -234,10 +235,10 @@
 
 .shop-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 25px;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 20px;
   padding: 40px;
-  max-width: 1400px;
+  max-width: 1200px;
   margin: 0 auto;
 }
 
@@ -253,8 +254,8 @@
 
 .shop-trait-card:hover {
   transform: translateY(-5px);
-  border-color: rgba(102, 126, 234, 0.5);
-  box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3);
+  border-color: rgba(255, 255, 255, 0.3);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
 }
 
 .shop-trait-card.in-cart {
@@ -264,18 +265,19 @@
 
 .trait-image-container {
   width: 100%;
-  height: 240px;
+  height: 180px;
   overflow: hidden;
-  background: rgba(0, 0, 0, 0.3);
+  background: rgba(0, 0, 0, 0.5);
   display: flex;
   align-items: center;
   justify-content: center;
+  border-radius: 12px 12px 0 0;
 }
 
 .trait-image-container img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
   transition: transform 0.3s;
 }
 
@@ -326,10 +328,10 @@
 .add-to-cart-btn {
   width: 100%;
   padding: 14px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.85) 100%);
   border: none;
   border-radius: 10px;
-  color: white;
+  color: #0a0a0a;
   font-size: 16px;
   font-weight: bold;
   cursor: pointer;
@@ -339,7 +341,8 @@
 
 .add-to-cart-btn:hover:not(:disabled) {
   transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+  box-shadow: 0 10px 30px rgba(255, 255, 255, 0.3);
+  background: linear-gradient(135deg, rgba(255,255,255,1) 0%, rgba(255,255,255,0.95) 100%);
 }
 
 .add-to-cart-btn:disabled {
@@ -361,10 +364,8 @@
 .shop-header h1 {
   font-size: 42px;
   margin: 0 0 10px 0;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  color: white;
+  font-weight: 300;
 }
 
 .shop-header p {
@@ -480,7 +481,7 @@
 }
 
 .nft-card.selectable:hover {
-  border-color: #667eea;
+  border-color: rgba(255, 255, 255, 0.3);
   transform: translateY(-3px);
 }
 
@@ -592,13 +593,15 @@
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
+  background: linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.85) 100%);
+  color: #0a0a0a;
+  font-weight: 600;
 }
 
 .btn-primary:hover:not(:disabled) {
   transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+  box-shadow: 0 10px 30px rgba(255, 255, 255, 0.3);
+  background: linear-gradient(135deg, rgba(255,255,255,1) 0%, rgba(255,255,255,0.95) 100%);
 }
 
 .btn-primary:disabled {
@@ -678,7 +681,7 @@
 }
 
 .payment-option:hover {
-  border-color: #667eea;
+  border-color: rgba(255, 255, 255, 0.3);
   transform: translateY(-5px);
 }
 
@@ -820,8 +823,8 @@
 
 .progress-step.active {
   opacity: 1;
-  border-color: #667eea;
-  background: rgba(102, 126, 234, 0.1);
+  border-color: rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.05);
 }
 
 .progress-step.completed {
@@ -913,7 +916,7 @@
 }
 
 .success-details a {
-  color: #667eea;
+  color: #ffa500;
   text-decoration: none;
 }
 
@@ -937,6 +940,41 @@
   font-size: 16px;
 }
 
+.floating-continue-btn {
+  position: fixed;
+  bottom: 30px;
+  right: 30px;
+  padding: 16px 32px;
+  background: linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.85) 100%);
+  border: none;
+  border-radius: 50px;
+  color: #0a0a0a;
+  font-size: 16px;
+  font-weight: bold;
+  cursor: pointer;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  z-index: 999;
+  transition: all 0.3s;
+  animation: slideIn 0.3s ease-out;
+}
+
+.floating-continue-btn:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 6px 25px rgba(255, 255, 255, 0.4);
+  background: linear-gradient(135deg, rgba(255,255,255,1) 0%, rgba(255,255,255,0.95) 100%);
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateY(100px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
 @media (max-width: 768px) {
   .shop-grid {
     grid-template-columns: 1fr;
@@ -946,6 +984,13 @@
   .cart-button {
     width: 50px;
     height: 50px;
+  }
+
+  .floating-continue-btn {
+    bottom: 20px;
+    right: 20px;
+    padding: 14px 24px;
+    font-size: 14px;
   }
 
   .cart-button svg {

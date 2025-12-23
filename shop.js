@@ -29,11 +29,23 @@ export async function loadShop(container, walletAdapter) {
     <div class="shop-header">
       <h1>Trap Stars Trait Shop</h1>
       <p>Exclusive traits for your Trap Stars - Burn NFTs or Pay with SOL</p>
+      <div style="text-align: center; margin-top: 20px;">
+        <button class="btn-secondary back-to-home-btn" style="padding: 12px 32px; border-radius: 12px;">
+          ← Back to Home
+        </button>
+      </div>
     </div>
     <div class="shop-grid"></div>
   `;
 
   container.appendChild(shopWrapper);
+
+  const backBtn = shopWrapper.querySelector('.back-to-home-btn');
+  backBtn.addEventListener('click', () => {
+    if (window.showModeSelection) {
+      window.showModeSelection();
+    }
+  });
 
   cartUI = createCartUI(cart, container);
 
@@ -116,6 +128,9 @@ function updateCardState(card, button, inCart) {
 }
 
 async function startCheckoutFlow(container, walletAdapter) {
+  if (cartUI && cartUI.continueFloatingBtn) {
+    cartUI.continueFloatingBtn.style.display = 'none';
+  }
   currentCheckoutStep = 'target-selection';
   await showTargetSelection(container, walletAdapter);
 }
@@ -217,16 +232,23 @@ async function showTargetSelection(container, walletAdapter) {
 
 async function generatePreview(targetNFT, cartItems, previewImgElement) {
   try {
+    previewImgElement.style.opacity = '0.5';
+
     const existingTraits = targetNFT.content?.metadata?.attributes || targetNFT.attributes || [];
+    console.log('Existing traits:', existingTraits);
+
     const newTraits = cartItems.map(item => ({
       trait_type: item.category,
       value: item.name
     }));
+    console.log('New traits to apply:', newTraits);
 
     const allTraits = [...existingTraits];
 
     newTraits.forEach(newTrait => {
-      const existingIndex = allTraits.findIndex(t => t.trait_type === newTrait.trait_type);
+      const existingIndex = allTraits.findIndex(t =>
+        t.trait_type.toLowerCase() === newTrait.trait_type.toLowerCase()
+      );
       if (existingIndex !== -1) {
         allTraits[existingIndex] = newTrait;
       } else {
@@ -234,15 +256,28 @@ async function generatePreview(targetNFT, cartItems, previewImgElement) {
       }
     });
 
+    console.log('Final traits for preview:', allTraits);
+
+    if (!window.generateImageFromTraits) {
+      throw new Error('Image generation function not available');
+    }
+
     const imageBlob = await window.generateImageFromTraits(allTraits);
+    if (!imageBlob) {
+      throw new Error('No image blob generated');
+    }
+
     const previewUrl = URL.createObjectURL(imageBlob);
     previewImage = previewUrl;
     previewImgElement.src = previewUrl;
     previewImgElement.alt = 'Preview of your updated Trap Star';
+    previewImgElement.style.opacity = '1';
 
   } catch (error) {
     console.error('Error generating preview:', error);
-    previewImgElement.alt = 'Error generating preview';
+    previewImgElement.src = targetNFT.image || targetNFT.cached_image_uri || '';
+    previewImgElement.alt = 'Preview unavailable - showing original';
+    previewImgElement.style.opacity = '1';
   }
 }
 
