@@ -280,6 +280,24 @@ table tbody tr:hover {
     background: rgba(255, 255, 255, 0.02);
 }
 
+.tab-btn {
+    background: transparent;
+    color: rgba(255, 255, 255, 0.6);
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s;
+    border-bottom: 2px solid transparent;
+}
+
+.tab-btn:hover {
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.tab-btn.active {
+    color: white;
+    border-bottom-color: white;
+}
+
 @media (max-width: 768px) {
     .info-row {
         grid-template-columns: 1fr;

@@ -419,7 +419,7 @@
                 <p class="text-gray-400">Select how you want to use the Trap Stars customization tool</p>
             </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-6xl mx-auto">
                 <!-- Playground Mode -->
                 <div class="glass rounded-2xl p-8 hover:border-blue-500/50 transition-all cursor-pointer" id="playgroundModeCard">
                     <div class="text-4xl mb-4">🎨</div>
@@ -439,6 +439,16 @@
                         Start Swap
                     </button>
                     <p id="nftRequirement" class="text-xs text-gray-500 mt-3 text-center"></p>
+                </div>
+
+                <!-- Trait Shop Mode -->
+                <div class="glass rounded-2xl p-8 hover:border-purple-500/50 transition-all cursor-pointer" id="shopModeCard">
+                    <div class="text-4xl mb-4">🛍️</div>
+                    <h3 class="text-2xl font-semibold mb-3">Trait Shop</h3>
+                    <p class="text-gray-400 mb-6 leading-relaxed">Buy exclusive traits for your Trap Stars. Burn NFTs or pay with SOL.</p>
+                    <button id="shopModeBtn" class="btn-primary w-full py-3 rounded-xl">
+                        Browse Shop
+                    </button>
                 </div>
             </div>
 
@@ -520,6 +530,9 @@
                 </button>
             </div>
         </div>
+
+        <!-- Trait Shop Page -->
+        <div id="shopPage" class="hidden fade-in"></div>
 
         <!-- Loading -->
         <div id="loading" class="text-center py-20 hidden">

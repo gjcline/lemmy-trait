@@ -143,8 +143,22 @@
                     </div>
                 </div>
 
-                <!-- Transactions Table -->
-                <div class="glass rounded-xl overflow-hidden">
+                <!-- Tabs -->
+                <div class="glass rounded-xl p-6 mb-8">
+                    <div class="flex gap-4 border-b border-white/10">
+                        <button id="tabTransactions" class="tab-btn active px-6 py-3 text-sm font-semibold">
+                            Transactions
+                        </button>
+                        <button id="tabShop" class="tab-btn px-6 py-3 text-sm font-semibold">
+                            Shop Management
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Transactions Section -->
+                <div id="transactionsSection">
+                    <!-- Transactions Table -->
+                    <div class="glass rounded-xl overflow-hidden">
                     <div class="overflow-x-auto">
                         <table class="w-full">
                             <thead class="bg-white/5 border-b border-white/10">
@@ -180,6 +194,102 @@
                             <button id="nextPageBtn" class="btn-secondary px-4 py-2 rounded-lg text-sm" disabled>
                                 Next
                             </button>
+                        </div>
+                    </div>
+                </div>
+                </div>
+
+                <!-- Shop Management Section -->
+                <div id="shopSection" class="hidden">
+                    <!-- Shop Stats -->
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                        <div class="glass rounded-xl p-6">
+                            <div class="flex items-center justify-between mb-2">
+                                <p class="text-xs text-gray-400 uppercase tracking-wider">Total Sales</p>
+                                <span class="text-2xl">💰</span>
+                            </div>
+                            <p class="text-3xl font-bold" id="shopStatsTotalSales">0</p>
+                            <p class="text-xs text-gray-500 mt-1">Trait purchases</p>
+                        </div>
+
+                        <div class="glass rounded-xl p-6">
+                            <div class="flex items-center justify-between mb-2">
+                                <p class="text-xs text-gray-400 uppercase tracking-wider">NFTs Burned</p>
+                                <span class="text-2xl">🔥</span>
+                            </div>
+                            <p class="text-3xl font-bold text-orange-400" id="shopStatsBurned">0</p>
+                            <p class="text-xs text-gray-500 mt-1">Total Trap Stars burned</p>
+                        </div>
+
+                        <div class="glass rounded-xl p-6">
+                            <div class="flex items-center justify-between mb-2">
+                                <p class="text-xs text-gray-400 uppercase tracking-wider">Revenue</p>
+                                <span class="text-2xl">💎</span>
+                            </div>
+                            <p class="text-3xl font-bold text-green-400" id="shopStatsRevenue">0 SOL</p>
+                            <p class="text-xs text-gray-500 mt-1">SOL collected</p>
+                        </div>
+                    </div>
+
+                    <!-- Shop Traits Table -->
+                    <div class="glass rounded-xl overflow-hidden mb-8">
+                        <div class="p-6 border-b border-white/10 flex justify-between items-center">
+                            <h3 class="text-xl font-semibold">Shop Traits</h3>
+                            <button id="addTraitBtn" class="btn-primary px-4 py-2 rounded-lg text-sm">
+                                + Add Trait
+                            </button>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full">
+                                <thead class="bg-white/5 border-b border-white/10">
+                                    <tr>
+                                        <th class="text-left p-4 text-xs text-gray-400 uppercase tracking-wider">Preview</th>
+                                        <th class="text-left p-4 text-xs text-gray-400 uppercase tracking-wider">Name</th>
+                                        <th class="text-left p-4 text-xs text-gray-400 uppercase tracking-wider">Category</th>
+                                        <th class="text-left p-4 text-xs text-gray-400 uppercase tracking-wider">Burn Cost</th>
+                                        <th class="text-left p-4 text-xs text-gray-400 uppercase tracking-wider">SOL Price</th>
+                                        <th class="text-left p-4 text-xs text-gray-400 uppercase tracking-wider">Status</th>
+                                        <th class="text-left p-4 text-xs text-gray-400 uppercase tracking-wider">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="traitsTableBody" class="divide-y divide-white/5">
+                                    <tr>
+                                        <td colspan="7" class="p-8 text-center text-gray-400">
+                                            <div class="spinner mx-auto mb-4"></div>
+                                            Loading traits...
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Shop Purchases History -->
+                    <div class="glass rounded-xl overflow-hidden">
+                        <div class="p-6 border-b border-white/10">
+                            <h3 class="text-xl font-semibold">Purchase History</h3>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full">
+                                <thead class="bg-white/5 border-b border-white/10">
+                                    <tr>
+                                        <th class="text-left p-4 text-xs text-gray-400 uppercase tracking-wider">Date</th>
+                                        <th class="text-left p-4 text-xs text-gray-400 uppercase tracking-wider">Wallet</th>
+                                        <th class="text-left p-4 text-xs text-gray-400 uppercase tracking-wider">Trait</th>
+                                        <th class="text-left p-4 text-xs text-gray-400 uppercase tracking-wider">Payment</th>
+                                        <th class="text-left p-4 text-xs text-gray-400 uppercase tracking-wider">Amount</th>
+                                        <th class="text-left p-4 text-xs text-gray-400 uppercase tracking-wider">Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="purchasesTableBody" class="divide-y divide-white/5">
+                                    <tr>
+                                        <td colspan="6" class="p-8 text-center text-gray-400">
+                                            <div class="spinner mx-auto mb-4"></div>
+                                            Loading purchases...
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
                         </div>
                     </div>
                 </div>

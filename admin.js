@@ -591,12 +591,162 @@ function setupEventListeners() {
     });
 }
 
+function switchTab(tabName) {
+    document.getElementById('transactionsSection').classList.toggle('hidden', tabName !== 'transactions');
+    document.getElementById('shopSection').classList.toggle('hidden', tabName !== 'shop');
+
+    document.getElementById('tabTransactions').classList.toggle('active', tabName === 'transactions');
+    document.getElementById('tabShop').classList.toggle('active', tabName === 'shop');
+
+    if (tabName === 'shop') {
+        loadShopData();
+    }
+}
+
+async function loadShopData() {
+    if (!supabase) return;
+
+    try {
+        await Promise.all([
+            loadShopStats(),
+            loadShopTraits(),
+            loadShopPurchases()
+        ]);
+    } catch (error) {
+        console.error('Error loading shop data:', error);
+    }
+}
+
+async function loadShopStats() {
+    try {
+        const { data: purchases, error } = await supabase
+            .from('trait_purchases')
+            .select('*');
+
+        if (error) throw error;
+
+        const totalSales = purchases.length;
+        const totalBurned = purchases.reduce((sum, p) => sum + p.nfts_burned_count, 0);
+        const totalRevenue = purchases.reduce((sum, p) => sum + parseFloat(p.sol_amount || 0), 0);
+
+        document.getElementById('shopStatsTotalSales').textContent = totalSales;
+        document.getElementById('shopStatsBurned').textContent = totalBurned;
+        document.getElementById('shopStatsRevenue').textContent = `${totalRevenue.toFixed(4)} SOL`;
+    } catch (error) {
+        console.error('Error loading shop stats:', error);
+    }
+}
+
+async function loadShopTraits() {
+    try {
+        const { data: traits, error } = await supabase
+            .from('shop_traits')
+            .select('*')
+            .order('created_at', { ascending: false });
+
+        if (error) throw error;
+
+        const tbody = document.getElementById('traitsTableBody');
+        if (traits.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="7" class="p-8 text-center text-gray-400">No traits found</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = traits.map(trait => `
+            <tr>
+                <td class="p-4">
+                    <img src="${trait.image_url}" alt="${trait.name}" class="w-16 h-16 object-cover rounded-lg">
+                </td>
+                <td class="p-4 font-medium">${trait.name}</td>
+                <td class="p-4"><span class="text-xs px-2 py-1 rounded-full bg-blue-500/20 text-blue-400">${trait.category}</span></td>
+                <td class="p-4">${trait.burn_cost} NFT${trait.burn_cost !== 1 ? 's' : ''}</td>
+                <td class="p-4">${trait.sol_price} SOL</td>
+                <td class="p-4">
+                    ${trait.is_active ?
+                        '<span class="status-badge completed"><span>✅</span><span>Active</span></span>' :
+                        '<span class="status-badge pending"><span>⏸️</span><span>Inactive</span></span>'}
+                </td>
+                <td class="p-4">
+                    <button onclick="toggleTraitStatus('${trait.id}', ${!trait.is_active})"
+                        class="btn-secondary px-3 py-1 rounded text-xs mr-2">
+                        ${trait.is_active ? 'Deactivate' : 'Activate'}
+                    </button>
+                </td>
+            </tr>
+        `).join('');
+    } catch (error) {
+        console.error('Error loading shop traits:', error);
+    }
+}
+
+async function loadShopPurchases() {
+    try {
+        const { data: purchases, error } = await supabase
+            .from('trait_purchases')
+            .select(`
+                *,
+                shop_traits (name, category)
+            `)
+            .order('created_at', { ascending: false })
+            .limit(50);
+
+        if (error) throw error;
+
+        const tbody = document.getElementById('purchasesTableBody');
+        if (purchases.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" class="p-8 text-center text-gray-400">No purchases found</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = purchases.map(purchase => `
+            <tr>
+                <td class="p-4 text-sm">${formatDate(purchase.created_at)}</td>
+                <td class="p-4">
+                    <span class="font-mono text-xs">${formatAddress(purchase.wallet_address)}</span>
+                </td>
+                <td class="p-4">${purchase.shop_traits?.name || 'Unknown'}</td>
+                <td class="p-4">
+                    <span class="text-xs px-2 py-1 rounded-full ${purchase.payment_method === 'burn' ? 'bg-orange-500/20 text-orange-400' : 'bg-green-500/20 text-green-400'}">
+                        ${purchase.payment_method === 'burn' ? '🔥 Burn' : '💰 SOL'}
+                    </span>
+                </td>
+                <td class="p-4">${purchase.payment_method === 'burn' ? `${purchase.nfts_burned_count} NFTs` : `${purchase.sol_amount} SOL`}</td>
+                <td class="p-4">${getStatusBadge(purchase.status)}</td>
+            </tr>
+        `).join('');
+    } catch (error) {
+        console.error('Error loading shop purchases:', error);
+    }
+}
+
+window.toggleTraitStatus = async function(traitId, newStatus) {
+    if (!supabase) return;
+
+    try {
+        const { error } = await supabase
+            .from('shop_traits')
+            .update({ is_active: newStatus })
+            .eq('id', traitId);
+
+        if (error) throw error;
+
+        showToast('Trait Updated', `Trait ${newStatus ? 'activated' : 'deactivated'} successfully`, '✅');
+        await loadShopTraits();
+    } catch (error) {
+        console.error('Error updating trait:', error);
+        showToast('Error', 'Failed to update trait status', '❌');
+    }
+};
+
 document.getElementById('adminConnectBtn').addEventListener('click', connectWallet);
 
 document.getElementById('tryAgainBtn').addEventListener('click', () => {
     document.getElementById('accessDeniedScreen').classList.add('hidden');
     document.getElementById('loginScreen').classList.remove('hidden');
 });
+
+document.getElementById('tabTransactions')?.addEventListener('click', () => switchTab('transactions'));
+document.getElementById('tabShop')?.addEventListener('click', () => switchTab('shop'));
 
 if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
     console.error('Supabase configuration missing');

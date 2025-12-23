@@ -36,6 +36,7 @@
     "@metaplex-foundation/umi-web3js-adapters": "^1.4.1",
     "@radix-ui/react-slot": "^1.2.4",
     "@solana/web3.js": "^1.87.6",
+    "@supabase/supabase-js": "^2.38.0",
     "class-variance-authority": "^0.7.1",
     "lucide-react": "^0.561.0",
     "three": "^0.181.2"

@@ -142,6 +142,7 @@ function setupEventListeners() {
     // Mode selection listeners
     document.getElementById('playgroundModeBtn').addEventListener('click', () => selectMode('playground'));
     document.getElementById('swapModeBtn').addEventListener('click', () => selectMode('swap'));
+    document.getElementById('shopModeBtn').addEventListener('click', () => selectMode('shop'));
     document.getElementById('backToWalletBtn').addEventListener('click', backToModeSelection);
 
     // Swap flow listeners
@@ -352,11 +353,12 @@ function showModeSelection() {
     hideElement(document.getElementById('content'));
     hideElement(document.getElementById('customizePage'));
     hideElement(document.getElementById('swapPage'));
+    hideElement(document.getElementById('shopPage'));
     showElement(document.getElementById('modeSelection'));
     showStatus('Choose your mode', 'info');
 }
 
-// Select a mode (playground or swap)
+// Select a mode (playground, swap, or shop)
 async function selectMode(mode) {
     console.log('Mode selected:', mode);
     state.mode = mode;
@@ -372,7 +374,28 @@ async function selectMode(mode) {
         showElement(document.getElementById('swapPage'));
         renderSwapStep();
         showStatus('Burn & Swap: Step 1 of 4', 'info');
+    } else if (mode === 'shop') {
+        await enterShopMode();
     }
+}
+
+async function enterShopMode() {
+    hideElement(document.getElementById('modeSelection'));
+    const shopPage = document.getElementById('shopPage');
+    showElement(shopPage);
+    showStatus('Loading Trait Shop...', 'info');
+
+    const { loadShop } = await import('./shop.js');
+    await loadShop(shopPage, getWalletAdapter());
+    showStatus('Browse exclusive traits', 'success');
+}
+
+function getWalletAdapter() {
+    return {
+        publicKey: window.solana?.publicKey,
+        signTransaction: async (tx) => await window.solana.signTransaction(tx),
+        signAllTransactions: async (txs) => await window.solana.signAllTransactions(txs)
+    };
 }
 
 // Enter playground mode with random traits
@@ -444,6 +467,7 @@ function backToModeSelection() {
     hideElement(document.getElementById('content'));
     hideElement(document.getElementById('customizePage'));
     hideElement(document.getElementById('swapPage'));
+    hideElement(document.getElementById('shopPage'));
     showModeSelection();
 }
 
