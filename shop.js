@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { ShoppingCart, createCartUI } from './shop-cart.js';
+import './shop-styles.css';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -15,11 +16,6 @@ let previewImage = null;
 
 export async function loadShop(container, walletAdapter) {
   container.innerHTML = '';
-
-  const link = document.createElement('link');
-  link.rel = 'stylesheet';
-  link.href = '/shop-styles.css';
-  document.head.appendChild(link);
 
   cart = new ShoppingCart();
 
