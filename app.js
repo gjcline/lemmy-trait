@@ -383,6 +383,12 @@ async function selectMode(mode) {
         renderSwapStep();
         showStatus('Burn & Swap: Step 1 of 4', 'info');
     } else if (mode === 'shop') {
+        const password = prompt('Enter admin password to access the trait shop:');
+        if (password !== 'Dogbone357') {
+            alert('Incorrect password. Access denied.');
+            state.mode = null;
+            return;
+        }
         await enterShopMode();
     }
 }
