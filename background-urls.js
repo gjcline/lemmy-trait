@@ -21,6 +21,7 @@ export const BACKGROUND_URLS = {
     'Private Jet RR': 'https://res.cloudinary.com/dhirimesk/image/upload/v1763774750/Private_Jet_RR_lkhfl7.png',
     'RR 1': 'https://res.cloudinary.com/dhirimesk/image/upload/v1763774750/RR_1_bm6stm.png',
     'RR Inside': 'https://res.cloudinary.com/dhirimesk/image/upload/v1763774749/RR_Inside_lrowrc.png',
+    'Scarface 2': 'https://trapstars-assets.netlify.app/background/scarface2.png',
     'Sega': 'https://res.cloudinary.com/dhirimesk/image/upload/v1763774757/Sega_pte6in.png',
     'Studio': 'https://res.cloudinary.com/dhirimesk/image/upload/v1763774763/Studio.png',
     'Tony Montana': 'https://res.cloudinary.com/dhirimesk/image/upload/v1763774771/Tony_Montana.png',
