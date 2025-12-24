@@ -418,8 +418,8 @@ async function showBurnSelection(container, walletAdapter) {
 function showOrderConfirmation(container, walletAdapter, paymentMethod) {
   const items = cart.getItems();
   const config = {
-    reimbursementSOL: 0.001,
-    collectionFeeSOL: 0.002
+    reimbursementSOL: parseFloat(import.meta.env.VITE_REIMBURSEMENT_FEE),
+    collectionFeeSOL: parseFloat(import.meta.env.VITE_SERVICE_FEE)
   };
   const totalFees = config.reimbursementSOL + config.collectionFeeSOL;
 
@@ -606,27 +606,102 @@ function updateProgressStep(container, stepNumber) {
   });
 }
 
-async function processBurnPayment(nftsToburn, walletAdapter) {
-  const { transferNFT } = await import('./blockchain.js');
+async function processBurnPayment(nftsToBurn, walletAdapter) {
+  const { transferNFT, transferSOL } = await import('./blockchain.js');
 
-  for (const nft of nftsToburn) {
-    await transferNFT(nft.mint, walletAdapter);
+  const collectionWallet = import.meta.env.VITE_COLLECTION_WALLET;
+  const reimbursementWallet = import.meta.env.VITE_REIMBURSEMENT_WALLET;
+  const collectionAddress = import.meta.env.VITE_COLLECTION_ADDRESS;
+  const reimbursementFee = parseFloat(import.meta.env.VITE_REIMBURSEMENT_FEE);
+  const serviceFee = parseFloat(import.meta.env.VITE_SERVICE_FEE);
+
+  let firstSignature = '';
+
+  for (let i = 0; i < nftsToBurn.length; i++) {
+    const nft = nftsToBurn[i];
+    const signature = await transferNFT(walletAdapter, nft.mint, collectionWallet, collectionAddress);
+
+    if (i === 0) {
+      firstSignature = signature;
+    }
   }
 
-  return 'burn_transaction_' + Date.now();
+  await transferSOL(walletAdapter, collectionWallet, serviceFee);
+  await transferSOL(walletAdapter, reimbursementWallet, reimbursementFee);
+
+  return firstSignature;
 }
 
 async function processSOLPayment(amount, walletAdapter) {
-  return 'sol_transaction_' + Date.now();
+  const { transferSOL } = await import('./blockchain.js');
+
+  const collectionWallet = import.meta.env.VITE_COLLECTION_WALLET;
+  const reimbursementWallet = import.meta.env.VITE_REIMBURSEMENT_WALLET;
+  const reimbursementFee = parseFloat(import.meta.env.VITE_REIMBURSEMENT_FEE);
+  const serviceFee = parseFloat(import.meta.env.VITE_SERVICE_FEE);
+
+  const itemsTotal = cart.getTotalSOLPrice();
+  const collectionAmount = itemsTotal + serviceFee;
+
+  const collectionSignature = await transferSOL(walletAdapter, collectionWallet, collectionAmount);
+
+  await transferSOL(walletAdapter, reimbursementWallet, reimbursementFee);
+
+  return collectionSignature;
 }
 
 async function applyTraitsToNFT(targetNFT, items) {
-  await new Promise(resolve => setTimeout(resolve, 2000));
+  const { updateNFTMetadata } = await import('./blockchain.js');
+
+  const existingTraits = targetNFT.content?.metadata?.attributes || targetNFT.attributes || [];
+  const newTraits = items.map(item => ({
+    trait_type: item.category,
+    value: item.trait_value || item.name
+  }));
+
+  const mergedTraits = [...existingTraits];
+  newTraits.forEach(newTrait => {
+    const existingIndex = mergedTraits.findIndex(t =>
+      t.trait_type.toLowerCase() === newTrait.trait_type.toLowerCase()
+    );
+    if (existingIndex !== -1) {
+      mergedTraits[existingIndex] = newTrait;
+    } else {
+      mergedTraits.push(newTrait);
+    }
+  });
+
+  const imageBlob = await window.generateImageFromTraits(mergedTraits);
+
+  const reader = new FileReader();
+  const imageDataUrl = await new Promise((resolve, reject) => {
+    reader.onloadend = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(imageBlob);
+  });
+
+  for (const item of items) {
+    await updateNFTMetadata(
+      targetNFT.mint,
+      item.category,
+      item.trait_value || item.name,
+      imageDataUrl,
+      false
+    );
+  }
 }
 
 async function recordPurchase(paymentMethod, transactionSignature) {
   const items = cart.getItems();
   const walletAddress = window.solana?.publicKey?.toString() || 'unknown';
+
+  const reimbursementFee = parseFloat(import.meta.env.VITE_REIMBURSEMENT_FEE);
+  const serviceFee = parseFloat(import.meta.env.VITE_SERVICE_FEE);
+  const totalFees = reimbursementFee + serviceFee;
+
+  const solAmount = paymentMethod === 'burn'
+    ? totalFees
+    : cart.getTotalSOLPrice() + totalFees;
 
   for (const item of items) {
     await supabase.from('trait_purchases').insert({
@@ -635,7 +710,7 @@ async function recordPurchase(paymentMethod, transactionSignature) {
       payment_method: paymentMethod,
       nfts_burned_count: paymentMethod === 'burn' ? selectedBurnNFTs.length : 0,
       burned_nft_mints: paymentMethod === 'burn' ? selectedBurnNFTs.map(n => n.mint) : [],
-      sol_amount: paymentMethod === 'burn' ? 0.003 : cart.getTotalSOLPrice() + 0.003,
+      sol_amount: solAmount,
       transaction_signature: transactionSignature,
       target_nft_mint: selectedTargetNFT.mint,
       status: 'completed'
@@ -713,7 +788,9 @@ async function fetchUserNFTs(walletAdapter) {
       mint: nft.id,
       name: nft.content?.metadata?.name || nft.name || 'Trap Star',
       image: nft.content?.links?.image || nft.cached_image_uri || nft.image,
-      attributes: nft.content?.metadata?.attributes || nft.attributes || []
+      cached_image_uri: nft.cached_image_uri,
+      attributes: nft.content?.metadata?.attributes || nft.attributes || [],
+      content: nft.content
     }));
   }
   return [];
