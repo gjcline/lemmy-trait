@@ -239,7 +239,7 @@ async function generatePreview(targetNFT, cartItems, previewImgElement) {
 
     const newTraits = cartItems.map(item => ({
       trait_type: item.category,
-      value: item.name
+      value: item.trait_value || item.name
     }));
     console.log('New traits to apply:', newTraits);
 

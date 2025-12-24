@@ -657,7 +657,10 @@ async function loadShopTraits() {
                 <td class="p-4">
                     <img src="${trait.image_url}" alt="${trait.name}" class="w-16 h-16 object-cover rounded-lg">
                 </td>
-                <td class="p-4 font-medium">${trait.name}</td>
+                <td class="p-4">
+                    <div class="font-medium">${trait.name}</div>
+                    <div class="text-xs text-gray-500 mt-1">Value: ${trait.trait_value || trait.name}</div>
+                </td>
                 <td class="p-4"><span class="text-xs px-2 py-1 rounded-full bg-blue-500/20 text-blue-400">${trait.category}</span></td>
                 <td class="p-4">${trait.burn_cost} NFT${trait.burn_cost !== 1 ? 's' : ''}</td>
                 <td class="p-4">${trait.sol_price} SOL</td>
