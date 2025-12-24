@@ -27,18 +27,25 @@ export async function loadShop(container, walletAdapter) {
   shopWrapper.className = 'shop-wrapper';
   shopWrapper.innerHTML = `
     <div class="shop-header">
-      <h1>Trap Stars Trait Shop</h1>
+      <h1 class="shop-title-clickable" style="cursor: pointer;">Trap Stars Trait Shop</h1>
       <p>Exclusive traits for your Trap Stars - Burn NFTs or Pay with SOL</p>
-      <div style="text-align: center; margin-top: 20px;">
-        <button class="btn-secondary back-to-home-btn" style="padding: 12px 32px; border-radius: 12px;">
-          ← Back to Home
-        </button>
-      </div>
     </div>
     <div class="shop-grid"></div>
+    <div style="text-align: center; margin: 40px 0; padding-bottom: 40px;">
+      <button class="btn-secondary back-to-home-btn" style="padding: 12px 32px; border-radius: 12px;">
+        ← Back to Home
+      </button>
+    </div>
   `;
 
   container.appendChild(shopWrapper);
+
+  const titleBtn = shopWrapper.querySelector('.shop-title-clickable');
+  titleBtn.addEventListener('click', () => {
+    if (window.showModeSelection) {
+      window.showModeSelection();
+    }
+  });
 
   const backBtn = shopWrapper.querySelector('.back-to-home-btn');
   backBtn.addEventListener('click', () => {
