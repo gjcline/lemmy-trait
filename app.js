@@ -18,7 +18,15 @@ const NETLIFY_ASSETS_BASE = 'https://trapstars-assets.netlify.app';
 // Helper function to construct Netlify asset URLs
 function getTraitImageUrl(category, traitName) {
     const encodedCategory = encodeURIComponent(category.toLowerCase());
-    const encodedName = encodeURIComponent(traitName.toLowerCase());
+
+    const filenameMappings = {
+        'gold ak': 'goldak',
+        'gold uzi': 'golduzi'
+    };
+
+    const normalizedName = traitName.toLowerCase();
+    const filename = filenameMappings[normalizedName] || normalizedName;
+    const encodedName = encodeURIComponent(filename);
     return `${NETLIFY_ASSETS_BASE}/${encodedCategory}/${encodedName}.png`;
 }
 
@@ -1441,7 +1449,9 @@ async function generateImageFromTraits(attributes, options = {}) {
         if (!traitFile) {
             const available = layerFiles.map(f => f.name).slice(0, 5).join(', ');
             missingLayers.push(`${layerName}/${trait.value} (available: ${available}...)`);
-            console.warn(`Trait not found: ${layerName}/${trait.value}`);
+            console.warn(`❌ Trait not found: ${layerName}/${trait.value}`);
+            console.warn(`   Looking for: "${trait.value}"`);
+            console.warn(`   Available in ${layerName}:`, layerFiles.map(f => f.name));
             continue;
         }
 
