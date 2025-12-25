@@ -265,7 +265,18 @@ async function generatePreview(targetNFT, cartItems, previewImgElement) {
       throw new Error('Image generation function not available');
     }
 
-    const imageBlob = await window.generateImageFromTraits(allTraits);
+    const logoTrait = allTraits.find(t => t.trait_type.toLowerCase() === 'logo');
+    const logoOptions = {};
+
+    if (logoTrait && logoTrait.value.toLowerCase() === 'uzi') {
+      logoOptions.logoUrl = 'https://trapstars-assets.netlify.app/logo/new%20logo.png';
+      logoOptions.useNewLogo = true;
+      console.log('Using Uzi logo for preview');
+    } else {
+      console.log('Using default Trap Stars logo for preview');
+    }
+
+    const imageBlob = await window.generateImageFromTraits(allTraits, logoOptions);
     if (!imageBlob) {
       throw new Error('No image blob generated');
     }
@@ -674,7 +685,18 @@ async function applyTraitsToNFT(targetNFT, items) {
     }
   });
 
-  const imageBlob = await window.generateImageFromTraits(mergedTraits);
+  const logoTrait = mergedTraits.find(t => t.trait_type.toLowerCase() === 'logo');
+  const logoOptions = {};
+
+  if (logoTrait && logoTrait.value.toLowerCase() === 'uzi') {
+    logoOptions.logoUrl = 'https://trapstars-assets.netlify.app/logo/new%20logo.png';
+    logoOptions.useNewLogo = true;
+    console.log('Using Uzi logo for final image');
+  } else {
+    console.log('Using default Trap Stars logo for final image');
+  }
+
+  const imageBlob = await window.generateImageFromTraits(mergedTraits, logoOptions);
 
   const reader = new FileReader();
   const imageDataUrl = await new Promise((resolve, reject) => {
