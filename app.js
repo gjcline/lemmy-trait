@@ -1440,6 +1440,43 @@ async function generateImageFromTraits(attributes, options = {}) {
             continue;
         }
 
+        if (layerName.toLowerCase() === 'logo') {
+            const defaultLogoUrl = import.meta.env.VITE_LOGO_URL || 'https://trapstars-assets.netlify.app/logo/logo.png';
+            let logoUrl = defaultLogoUrl;
+            let logoType = 'Trap Stars Logo';
+
+            if (trait && trait.value && trait.value.toLowerCase() === 'uzi') {
+                logoUrl = 'https://trapstars-assets.netlify.app/logo/new%20logo.png';
+                logoType = 'Uzi Logo';
+            } else if (options.logoUrl) {
+                logoUrl = options.logoUrl;
+                logoType = options.useNewLogo ? 'New Uzi Logo' : 'Trap Stars Logo';
+            }
+
+            console.log(`Drawing ${logoType} from: ${logoUrl}`);
+
+            try {
+                await new Promise((resolve, reject) => {
+                    const img = new Image();
+                    img.crossOrigin = 'anonymous';
+                    img.onload = () => {
+                        ctx.drawImage(img, 0, 0, config.imageSize, config.imageSize);
+                        layersDrawn++;
+                        console.log(`✅ ${logoType} drawn`);
+                        resolve();
+                    };
+                    img.onerror = (e) => {
+                        console.warn('Logo failed to load, continuing without it');
+                        resolve();
+                    };
+                    img.src = logoUrl;
+                });
+            } catch (err) {
+                console.warn('Error loading logo, continuing without it:', err.message);
+            }
+            continue;
+        }
+
         const layerFiles = state.traitLayers[layerName];
         if (!layerFiles || layerFiles.length === 0) {
             missingLayers.push(`${layerName} (no files loaded)`);
@@ -1490,32 +1527,6 @@ async function generateImageFromTraits(attributes, options = {}) {
 
     if (missingLayers.length > 0) {
         console.warn('Missing layers:', missingLayers);
-    }
-
-    // Use custom logo URL if provided, otherwise use default
-    const defaultLogoUrl = import.meta.env.VITE_LOGO_URL || 'https://trapstars-assets.netlify.app/logo/logo.png';
-    const logoUrl = options.logoUrl || defaultLogoUrl;
-    const logoType = options.useNewLogo ? 'New Uzi Logo' : 'Trap Stars Logo';
-
-    console.log(`Drawing ${logoType} overlay from: ${logoUrl}`);
-
-    try {
-        await new Promise((resolve, reject) => {
-            const img = new Image();
-            img.crossOrigin = 'anonymous';
-            img.onload = () => {
-                ctx.drawImage(img, 0, 0, config.imageSize, config.imageSize);
-                console.log(`✅ ${logoType} overlay drawn`);
-                resolve();
-            };
-            img.onerror = (e) => {
-                console.warn('Logo failed to load, continuing without it');
-                resolve();
-            };
-            img.src = logoUrl;
-        });
-    } catch (err) {
-        console.warn('Error loading logo, continuing without it:', err.message);
     }
 
     return new Promise((resolve, reject) => {
