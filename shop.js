@@ -822,12 +822,13 @@ function showFailureScreen(container, walletAdapter, errorMessage) {
 async function fetchUserNFTs(walletAdapter) {
   if (window.appState && window.appState.nfts) {
     return window.appState.nfts.map(nft => ({
-      mint: nft.id,
-      name: nft.content?.metadata?.name || nft.name || 'Trap Star',
-      image: nft.content?.links?.image || nft.cached_image_uri || nft.image,
+      mint: nft.mint,
+      name: nft.name || 'Trap Star',
+      image: nft.image,
       cached_image_uri: nft.cached_image_uri,
-      attributes: nft.content?.metadata?.attributes || nft.attributes || [],
-      content: nft.content
+      attributes: nft.attributes || [],
+      content: nft.content,
+      rawData: nft.rawData
     }));
   }
   return [];
