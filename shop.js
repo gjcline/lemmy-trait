@@ -667,6 +667,10 @@ async function processSOLPayment(amount, walletAdapter) {
 async function applyTraitsToNFT(targetNFT, items) {
   const { updateNFTMetadata } = await import('./blockchain.js');
 
+  console.log('🎯 Target NFT:', targetNFT);
+  console.log('🎯 Target NFT mint:', targetNFT?.mint);
+  console.log('🎯 Items to apply:', items);
+
   const existingTraits = targetNFT.content?.metadata?.attributes || targetNFT.attributes || [];
   const newTraits = items.map(item => ({
     trait_type: item.category,
@@ -705,15 +709,18 @@ async function applyTraitsToNFT(targetNFT, items) {
     reader.readAsDataURL(imageBlob);
   });
 
-  for (const item of items) {
-    await updateNFTMetadata(
-      targetNFT.mint,
-      item.category,
-      item.trait_value || item.name,
-      imageDataUrl,
-      false
-    );
-  }
+  const lastItem = items[items.length - 1];
+  console.log(`✅ Applying ${items.length} trait(s) to NFT ${targetNFT.mint}`);
+  console.log(`📝 Last trait being applied: ${lastItem.category} → ${lastItem.trait_value || lastItem.name}`);
+  console.log(`🎨 Using new logo: ${logoOptions.useNewLogo || false}`);
+
+  await updateNFTMetadata(
+    targetNFT.mint,
+    lastItem.category,
+    lastItem.trait_value || lastItem.name,
+    imageDataUrl,
+    logoOptions.useNewLogo || false
+  );
 }
 
 async function recordPurchase(paymentMethod, transactionSignature) {
