@@ -667,18 +667,27 @@ async function processSOLPayment(amount, walletAdapter) {
 async function applyTraitsToNFT(targetNFT, items) {
   const { updateNFTMetadata } = await import('./blockchain.js');
 
-  console.log('🎯 Target NFT:', targetNFT);
+  console.log('🎯 Target NFT full object:', JSON.stringify(targetNFT, null, 2));
+  console.log('🎯 Target NFT keys:', Object.keys(targetNFT));
   console.log('🎯 Target NFT mint:', targetNFT?.mint);
+  console.log('🎯 Target NFT id:', targetNFT?.id);
   console.log('🎯 Items to apply:', items);
 
-  const existingTraits = targetNFT.content?.metadata?.attributes || targetNFT.attributes || [];
-  const newTraits = items.map(item => ({
-    trait_type: item.category,
-    value: item.trait_value || item.name
-  }));
+  const nftMint = targetNFT.mint || targetNFT.id;
+  if (!nftMint) {
+    throw new Error('Cannot find NFT mint address. NFT object is missing both mint and id properties.');
+  }
 
+  const existingTraits = targetNFT.content?.metadata?.attributes || targetNFT.attributes || [];
   const mergedTraits = [...existingTraits];
-  newTraits.forEach(newTrait => {
+
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i];
+    const newTrait = {
+      trait_type: item.category,
+      value: item.trait_value || item.name
+    };
+
     const existingIndex = mergedTraits.findIndex(t =>
       t.trait_type.toLowerCase() === newTrait.trait_type.toLowerCase()
     );
@@ -687,40 +696,36 @@ async function applyTraitsToNFT(targetNFT, items) {
     } else {
       mergedTraits.push(newTrait);
     }
-  });
 
-  const logoTrait = mergedTraits.find(t => t.trait_type.toLowerCase() === 'logo');
-  const logoOptions = {};
+    const logoTrait = mergedTraits.find(t => t.trait_type.toLowerCase() === 'logo');
+    const useNewLogo = logoTrait && logoTrait.value.toLowerCase() === 'uzi';
+    const logoOptions = {};
 
-  if (logoTrait && logoTrait.value.toLowerCase() === 'uzi') {
-    logoOptions.logoUrl = 'https://trapstars-assets.netlify.app/logo/new%20logo.png';
-    logoOptions.useNewLogo = true;
-    console.log('Using Uzi logo for final image');
-  } else {
-    console.log('Using default Trap Stars logo for final image');
+    if (useNewLogo) {
+      logoOptions.logoUrl = 'https://trapstars-assets.netlify.app/logo/new%20logo.png';
+      logoOptions.useNewLogo = true;
+    }
+
+    const imageBlob = await window.generateImageFromTraits(mergedTraits, logoOptions);
+
+    const reader = new FileReader();
+    const imageDataUrl = await new Promise((resolve, reject) => {
+      reader.onloadend = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(imageBlob);
+    });
+
+    console.log(`✅ Applying trait ${i + 1}/${items.length}: ${item.category} → ${item.trait_value || item.name}`);
+    console.log(`🎨 Using new logo: ${useNewLogo}`);
+
+    await updateNFTMetadata(
+      nftMint,
+      item.category,
+      item.trait_value || item.name,
+      imageDataUrl,
+      useNewLogo
+    );
   }
-
-  const imageBlob = await window.generateImageFromTraits(mergedTraits, logoOptions);
-
-  const reader = new FileReader();
-  const imageDataUrl = await new Promise((resolve, reject) => {
-    reader.onloadend = () => resolve(reader.result);
-    reader.onerror = reject;
-    reader.readAsDataURL(imageBlob);
-  });
-
-  const lastItem = items[items.length - 1];
-  console.log(`✅ Applying ${items.length} trait(s) to NFT ${targetNFT.mint}`);
-  console.log(`📝 Last trait being applied: ${lastItem.category} → ${lastItem.trait_value || lastItem.name}`);
-  console.log(`🎨 Using new logo: ${logoOptions.useNewLogo || false}`);
-
-  await updateNFTMetadata(
-    targetNFT.mint,
-    lastItem.category,
-    lastItem.trait_value || lastItem.name,
-    imageDataUrl,
-    logoOptions.useNewLogo || false
-  );
 }
 
 async function recordPurchase(paymentMethod, transactionSignature) {
