@@ -441,7 +441,7 @@ function showOrderConfirmation(container, walletAdapter, paymentMethod) {
   let totalCost = 0;
 
   if (paymentMethod === 'burn') {
-    totalCost = totalFees;
+    totalCost = config.reimbursementSOL;
     paymentDetails = `
       <div class="payment-breakdown">
         <h3>Burning ${selectedBurnNFTs.length} Trap Star${selectedBurnNFTs.length !== 1 ? 's' : ''}</h3>
@@ -458,13 +458,9 @@ function showOrderConfirmation(container, walletAdapter, paymentMethod) {
             <span>Reimbursement Fee:</span>
             <span>${config.reimbursementSOL} SOL</span>
           </div>
-          <div class="fee-row">
-            <span>Collection Fee:</span>
-            <span>${config.collectionFeeSOL} SOL</span>
-          </div>
           <div class="fee-row total">
             <span>Total Fees:</span>
-            <span>${totalFees.toFixed(4)} SOL</span>
+            <span>${totalCost.toFixed(4)} SOL</span>
           </div>
         </div>
       </div>
@@ -627,7 +623,6 @@ async function processBurnPayment(nftsToBurn, walletAdapter) {
   const reimbursementWallet = import.meta.env.VITE_REIMBURSEMENT_WALLET;
   const collectionAddress = import.meta.env.VITE_COLLECTION_ADDRESS;
   const reimbursementFee = parseFloat(import.meta.env.VITE_REIMBURSEMENT_FEE);
-  const serviceFee = parseFloat(import.meta.env.VITE_SERVICE_FEE);
 
   let firstSignature = '';
 
@@ -640,7 +635,6 @@ async function processBurnPayment(nftsToBurn, walletAdapter) {
     }
   }
 
-  await transferSOL(walletAdapter, collectionWallet, serviceFee);
   await transferSOL(walletAdapter, reimbursementWallet, reimbursementFee);
 
   return firstSignature;
