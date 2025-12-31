@@ -139,18 +139,18 @@ Deno.serve(async (req: Request) => {
     // Update existing trait or add new trait
     const updatedAttributes = [...currentAttributes];
 
-    // Find if the trait already exists
+    // Find if the trait already exists (case-insensitive)
     const existingTraitIndex = updatedAttributes.findIndex(
-      (attr: any) => attr.trait_type === traitType
+      (attr: any) => attr.trait_type.toLowerCase() === traitType.toLowerCase()
     );
 
     if (existingTraitIndex >= 0) {
-      // Update existing trait
+      // Update existing trait, preserving original casing
       updatedAttributes[existingTraitIndex] = {
-        ...updatedAttributes[existingTraitIndex],
+        trait_type: updatedAttributes[existingTraitIndex].trait_type,
         value: newTraitValue,
       };
-      console.log(`✏️ Updated existing trait: ${traitType} → ${newTraitValue}`);
+      console.log(`✏️ Updated existing trait: ${updatedAttributes[existingTraitIndex].trait_type} → ${newTraitValue}`);
     } else {
       // Add new trait (it didn't exist before)
       updatedAttributes.push({
