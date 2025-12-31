@@ -686,7 +686,10 @@ async function applyTraitsToNFT(targetNFT, items) {
       t.trait_type.toLowerCase() === newTrait.trait_type.toLowerCase()
     );
     if (existingIndex !== -1) {
-      mergedTraits[existingIndex] = newTrait;
+      mergedTraits[existingIndex] = {
+        trait_type: mergedTraits[existingIndex].trait_type,
+        value: newTrait.value
+      };
     } else {
       mergedTraits.push(newTrait);
     }
