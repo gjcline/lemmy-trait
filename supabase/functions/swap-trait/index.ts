@@ -145,12 +145,12 @@ Deno.serve(async (req: Request) => {
     );
 
     if (existingTraitIndex >= 0) {
-      // Update existing trait, preserving original casing
+      // Update existing trait, replacing with new casing
       updatedAttributes[existingTraitIndex] = {
-        trait_type: updatedAttributes[existingTraitIndex].trait_type,
+        trait_type: traitType,
         value: newTraitValue,
       };
-      console.log(`✏️ Updated existing trait: ${updatedAttributes[existingTraitIndex].trait_type} → ${newTraitValue}`);
+      console.log(`✏️ Updated existing trait: ${traitType} → ${newTraitValue}`);
     } else {
       // Add new trait (it didn't exist before)
       updatedAttributes.push({

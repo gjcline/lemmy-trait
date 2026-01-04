@@ -75,8 +75,11 @@ async function loadTraits(gridContainer) {
     traits.forEach(trait => {
       const card = gridContainer.querySelector(`[data-trait-id="${trait.id}"]`);
       const addBtn = card.querySelector('.add-to-cart-btn');
+      const isOutOfStock = trait.stock_quantity !== null && trait.stock_quantity <= 0;
 
       addBtn.addEventListener('click', () => {
+        if (isOutOfStock) return;
+
         if (cart.hasItem(trait.id)) {
           cart.removeItem(trait.id);
           updateCardState(card, addBtn, false);
@@ -94,10 +97,20 @@ async function loadTraits(gridContainer) {
 }
 
 function createTraitCard(trait) {
+  const isOutOfStock = trait.stock_quantity !== null && trait.stock_quantity <= 0;
+  const stockDisplay = trait.stock_quantity === null
+    ? ''
+    : trait.stock_quantity <= 0
+      ? '<div class="stock-indicator sold-out">SOLD OUT</div>'
+      : trait.stock_quantity <= 5
+        ? `<div class="stock-indicator low-stock">${trait.stock_quantity} left!</div>`
+        : `<div class="stock-indicator in-stock">${trait.stock_quantity} available</div>`;
+
   return `
-    <div class="shop-trait-card" data-trait-id="${trait.id}">
+    <div class="shop-trait-card ${isOutOfStock ? 'out-of-stock' : ''}" data-trait-id="${trait.id}">
       <div class="trait-image-container">
         <img src="${trait.image_url}" alt="${trait.name}">
+        ${stockDisplay}
       </div>
       <div class="trait-info">
         <h3 class="trait-name">${trait.name}</h3>
@@ -112,7 +125,7 @@ function createTraitCard(trait) {
             <span class="trait-price-value">${trait.sol_price} SOL</span>
           </div>
         </div>
-        <button class="add-to-cart-btn">Add to Cart</button>
+        <button class="add-to-cart-btn" ${isOutOfStock ? 'disabled' : ''}>${isOutOfStock ? 'Sold Out' : 'Add to Cart'}</button>
       </div>
     </div>
   `;
@@ -547,7 +560,54 @@ function showOrderConfirmation(container, walletAdapter, paymentMethod) {
   });
 }
 
+async function validateStockAvailability() {
+  const items = cart.getItems();
+  const outOfStockItems = [];
+
+  for (const item of items) {
+    const { data, error } = await supabase
+      .rpc('check_trait_stock', { trait_uuid: item.id });
+
+    if (error) {
+      console.error('Stock check error:', error);
+      return {
+        success: false,
+        message: 'Failed to verify stock availability. Please try again.'
+      };
+    }
+
+    if (data && data.length > 0) {
+      const stockInfo = data[0];
+      if (!stockInfo.available) {
+        outOfStockItems.push(stockInfo.trait_name);
+      }
+    }
+  }
+
+  if (outOfStockItems.length > 0) {
+    const itemsList = outOfStockItems.join(', ');
+    return {
+      success: false,
+      message: `The following items are out of stock: ${itemsList}. Please remove them from your cart and try again.`
+    };
+  }
+
+  return { success: true };
+}
+
 async function processTransaction(container, walletAdapter, paymentMethod, totalCost) {
+  try {
+    const stockValidation = await validateStockAvailability();
+    if (!stockValidation.success) {
+      showFailureScreen(container, walletAdapter, stockValidation.message);
+      return;
+    }
+  } catch (error) {
+    console.error('Stock validation error:', error);
+    showFailureScreen(container, walletAdapter, 'Failed to validate stock availability. Please try again.');
+    return;
+  }
+
   container.innerHTML = `
     <link rel="stylesheet" href="/shop-styles.css">
     <div class="checkout-container">
@@ -687,7 +747,7 @@ async function applyTraitsToNFT(targetNFT, items) {
     );
     if (existingIndex !== -1) {
       mergedTraits[existingIndex] = {
-        trait_type: mergedTraits[existingIndex].trait_type,
+        trait_type: newTrait.trait_type,
         value: newTrait.value
       };
     } else {
