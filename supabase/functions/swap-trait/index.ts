@@ -20,6 +20,7 @@ interface SwapTraitRequest {
   newTraitValue: string;
   compositeImageDataUrl: string;
   useNewLogo?: boolean;
+  completeAttributes?: Array<{ trait_type: string; value: string }>;
 }
 
 Deno.serve(async (req: Request) => {
@@ -31,11 +32,23 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const { recipientNFT, traitType, newTraitValue, compositeImageDataUrl, useNewLogo }: SwapTraitRequest = await req.json();
+    const { recipientNFT, traitType, newTraitValue, compositeImageDataUrl, useNewLogo, completeAttributes }: SwapTraitRequest = await req.json();
 
-    if (!recipientNFT || !traitType || !newTraitValue || !compositeImageDataUrl) {
+    const isBatchMode = completeAttributes && completeAttributes.length > 0;
+
+    if (!recipientNFT || !compositeImageDataUrl) {
       return new Response(
-        JSON.stringify({ error: "Missing required fields: recipientNFT, traitType, newTraitValue, compositeImageDataUrl" }),
+        JSON.stringify({ error: "Missing required fields: recipientNFT, compositeImageDataUrl" }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
+
+    if (!isBatchMode && (!traitType || !newTraitValue)) {
+      return new Response(
+        JSON.stringify({ error: "Legacy mode requires traitType and newTraitValue" }),
         {
           status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -44,8 +57,13 @@ Deno.serve(async (req: Request) => {
     }
 
     console.log("🔄 Starting trait swap...");
+    console.log("Mode:", isBatchMode ? "BATCH" : "LEGACY");
     console.log("Recipient NFT:", recipientNFT);
-    console.log("Trait:", traitType, "→", newTraitValue);
+    if (isBatchMode) {
+      console.log("Complete attributes provided:", completeAttributes.length, "traits");
+    } else {
+      console.log("Trait:", traitType, "→", newTraitValue);
+    }
     console.log("Use New Logo:", useNewLogo);
 
     // Load environment variables
@@ -136,28 +154,36 @@ Deno.serve(async (req: Request) => {
     const currentMetadata = asset.content.metadata;
     const currentAttributes = asset.content.metadata.attributes || [];
 
-    // Update existing trait or add new trait
-    const updatedAttributes = [...currentAttributes];
+    let updatedAttributes;
 
-    // Find if the trait already exists (case-insensitive)
-    const existingTraitIndex = updatedAttributes.findIndex(
-      (attr: any) => attr.trait_type.toLowerCase() === traitType.toLowerCase()
-    );
-
-    if (existingTraitIndex >= 0) {
-      // Update existing trait, replacing with new casing
-      updatedAttributes[existingTraitIndex] = {
-        trait_type: traitType,
-        value: newTraitValue,
-      };
-      console.log(`✏️ Updated existing trait: ${traitType} → ${newTraitValue}`);
+    if (isBatchMode) {
+      console.log("📦 BATCH MODE: Using complete attributes array provided by client");
+      updatedAttributes = [...completeAttributes];
+      console.log(`✅ Using ${updatedAttributes.length} traits from client`);
     } else {
-      // Add new trait (it didn't exist before)
-      updatedAttributes.push({
-        trait_type: traitType,
-        value: newTraitValue,
-      });
-      console.log(`➕ Added new trait: ${traitType} → ${newTraitValue}`);
+      console.log("🔧 LEGACY MODE: Merging single trait into current metadata");
+      updatedAttributes = [...currentAttributes];
+
+      // Find if the trait already exists (case-insensitive)
+      const existingTraitIndex = updatedAttributes.findIndex(
+        (attr: any) => attr.trait_type.toLowerCase() === traitType.toLowerCase()
+      );
+
+      if (existingTraitIndex >= 0) {
+        // Update existing trait, replacing with new casing
+        updatedAttributes[existingTraitIndex] = {
+          trait_type: traitType,
+          value: newTraitValue,
+        };
+        console.log(`✏️ Updated existing trait: ${traitType} → ${newTraitValue}`);
+      } else {
+        // Add new trait (it didn't exist before)
+        updatedAttributes.push({
+          trait_type: traitType,
+          value: newTraitValue,
+        });
+        console.log(`➕ Added new trait: ${traitType} → ${newTraitValue}`);
+      }
     }
 
     // Update Logo trait if new logo is being used

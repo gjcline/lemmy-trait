@@ -104,11 +104,20 @@ export async function transferNFT(walletAdapter, nftMint, recipientAddress, coll
  * @param {string} newTraitValue - New trait value (e.g., "Ghost", "Hoodie")
  * @param {string} compositeImageDataUrl - Base64 data URL of the composite image
  * @param {boolean} useNewLogo - Whether to update the Logo trait to "Uzi"
+ * @param {Array<Object>} completeAttributes - Optional: Complete attributes array for batch mode
  * @returns {Promise<Object>} { signature, imageUrl, metadataUrl }
  */
-export async function updateNFTMetadata(recipientNFT, traitType, newTraitValue, compositeImageDataUrl, useNewLogo = false) {
+export async function updateNFTMetadata(recipientNFT, traitType, newTraitValue, compositeImageDataUrl, useNewLogo = false, completeAttributes = null) {
+    const isBatchMode = completeAttributes && completeAttributes.length > 0;
+
     console.log(`🔄 Updating NFT metadata for ${recipientNFT}...`);
-    console.log(`   Trait: ${traitType} → ${newTraitValue}`);
+    console.log(`   Mode: ${isBatchMode ? 'BATCH' : 'LEGACY'}`);
+
+    if (isBatchMode) {
+        console.log(`   Complete attributes: ${completeAttributes.length} traits`);
+    } else {
+        console.log(`   Trait: ${traitType} → ${newTraitValue}`);
+    }
     console.log(`   New Logo: ${useNewLogo}`);
 
     try {
@@ -122,6 +131,20 @@ export async function updateNFTMetadata(recipientNFT, traitType, newTraitValue, 
         const functionUrl = `${supabaseUrl}/functions/v1/swap-trait`;
 
         console.log('📤 Calling edge function...');
+
+        const requestBody = {
+            recipientNFT,
+            compositeImageDataUrl,
+            useNewLogo
+        };
+
+        if (isBatchMode) {
+            requestBody.completeAttributes = completeAttributes;
+        } else {
+            requestBody.traitType = traitType;
+            requestBody.newTraitValue = newTraitValue;
+        }
+
         const response = await fetch(functionUrl, {
             method: 'POST',
             headers: {
@@ -129,13 +152,7 @@ export async function updateNFTMetadata(recipientNFT, traitType, newTraitValue, 
                 'Authorization': `Bearer ${supabaseAnonKey}`,
                 'apikey': supabaseAnonKey
             },
-            body: JSON.stringify({
-                recipientNFT,
-                traitType,
-                newTraitValue,
-                compositeImageDataUrl,
-                useNewLogo
-            })
+            body: JSON.stringify(requestBody)
         });
 
         if (!response.ok) {
