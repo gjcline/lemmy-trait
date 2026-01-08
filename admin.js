@@ -1,5 +1,20 @@
 import './shader-background.js';
 
+// Helper function to normalize IPFS URLs to use ipfs.io gateway
+function normalizeIPFSUrl(url) {
+    if (!url || typeof url !== 'string') return url;
+
+    // Extract IPFS hash from various formats
+    const ipfsHashMatch = url.match(/(?:ipfs:\/\/|\/ipfs\/|gateway\.pinata\.cloud\/ipfs\/|cloudflare-ipfs\.com\/ipfs\/|dweb\.link\/ipfs\/|nftstorage\.link\/ipfs\/|w3s\.link\/ipfs\/)([a-zA-Z0-9]+)/);
+
+    if (ipfsHashMatch && ipfsHashMatch[1]) {
+        const hash = ipfsHashMatch[1];
+        return `https://ipfs.io/ipfs/${hash}`;
+    }
+
+    return url;
+}
+
 const ADMIN_WALLETS = [
     import.meta.env.VITE_ADMIN_WALLET_1,
     import.meta.env.VITE_ADMIN_WALLET_2
@@ -396,14 +411,14 @@ window.showTransactionDetail = async function(transactionId) {
                     <div class="info-row">
                         <div class="info-label">New Image</div>
                         <div class="info-value">
-                            <a href="${tx.new_image_url}" target="_blank" class="signature-link">View on IPFS →</a>
+                            <a href="${normalizeIPFSUrl(tx.new_image_url)}" target="_blank" class="signature-link">View on IPFS →</a>
                         </div>
                     </div>` : ''}
                     ${tx.new_metadata_url ? `
                     <div class="info-row">
                         <div class="info-label">New Metadata</div>
                         <div class="info-value">
-                            <a href="${tx.new_metadata_url}" target="_blank" class="signature-link">View on IPFS →</a>
+                            <a href="${normalizeIPFSUrl(tx.new_metadata_url)}" target="_blank" class="signature-link">View on IPFS →</a>
                         </div>
                     </div>` : ''}
                 </div>

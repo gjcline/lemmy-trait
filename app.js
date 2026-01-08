@@ -30,6 +30,21 @@ function getTraitImageUrl(category, traitName) {
     return `${NETLIFY_ASSETS_BASE}/${encodedCategory}/${encodedName}.png`;
 }
 
+// Helper function to normalize IPFS URLs to use ipfs.io gateway
+function normalizeIPFSUrl(url) {
+    if (!url || typeof url !== 'string') return url;
+
+    // Extract IPFS hash from various formats
+    const ipfsHashMatch = url.match(/(?:ipfs:\/\/|\/ipfs\/|gateway\.pinata\.cloud\/ipfs\/|cloudflare-ipfs\.com\/ipfs\/|dweb\.link\/ipfs\/|nftstorage\.link\/ipfs\/|w3s\.link\/ipfs\/)([a-zA-Z0-9]+)/);
+
+    if (ipfsHashMatch && ipfsHashMatch[1]) {
+        const hash = ipfsHashMatch[1];
+        return `https://ipfs.io/ipfs/${hash}`;
+    }
+
+    return url;
+}
+
 // Load configuration
 let config = null;
 let shaderBackground = null;
@@ -546,14 +561,19 @@ async function fetchUserNFTs(walletAddr) {
         }
         
         // Format NFTs
-        state.nfts = trapStars.map(nft => ({
-            mint: nft.id,
-            name: nft.content?.metadata?.name || 'Trap Star',
-            image: nft.content?.links?.image || nft.content?.files?.[0]?.uri || 'https://via.placeholder.com/300/6B46C1/fff?text=TrapStar',
-            attributes: nft.content?.metadata?.attributes || [],
-            compressed: nft.compression?.compressed || false,
-            rawData: nft
-        }));
+        state.nfts = trapStars.map(nft => {
+            const rawImage = nft.content?.links?.image || nft.content?.files?.[0]?.uri || 'https://via.placeholder.com/300/6B46C1/fff?text=TrapStar';
+            const normalizedImage = normalizeIPFSUrl(rawImage);
+
+            return {
+                mint: nft.id,
+                name: nft.content?.metadata?.name || 'Trap Star',
+                image: normalizedImage,
+                attributes: nft.content?.metadata?.attributes || [],
+                compressed: nft.compression?.compressed || false,
+                rawData: nft
+            };
+        });
         
         console.log('✅ Formatted NFTs:', state.nfts);
         hideLoading();
