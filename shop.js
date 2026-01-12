@@ -13,9 +13,15 @@ let selectedTargetNFT = null;
 let selectedBurnNFTs = [];
 let userNFTs = [];
 let previewImage = null;
+let shopSubscription = null;
 
 export async function loadShop(container, walletAdapter) {
   container.innerHTML = '';
+
+  if (shopSubscription) {
+    supabase.removeChannel(shopSubscription);
+    shopSubscription = null;
+  }
 
   cart = new ShoppingCart();
 
@@ -38,6 +44,10 @@ export async function loadShop(container, walletAdapter) {
 
   const titleBtn = shopWrapper.querySelector('.shop-title-clickable');
   titleBtn.addEventListener('click', () => {
+    if (shopSubscription) {
+      supabase.removeChannel(shopSubscription);
+      shopSubscription = null;
+    }
     if (window.showModeSelection) {
       window.showModeSelection();
     }
@@ -45,6 +55,10 @@ export async function loadShop(container, walletAdapter) {
 
   const backBtn = shopWrapper.querySelector('.back-to-home-btn');
   backBtn.addEventListener('click', () => {
+    if (shopSubscription) {
+      supabase.removeChannel(shopSubscription);
+      shopSubscription = null;
+    }
     if (window.showModeSelection) {
       window.showModeSelection();
     }
@@ -57,7 +71,24 @@ export async function loadShop(container, walletAdapter) {
     startCheckoutFlow(container, walletAdapter);
   });
 
-  await loadTraits(shopWrapper.querySelector('.shop-grid'));
+  const gridContainer = shopWrapper.querySelector('.shop-grid');
+  await loadTraits(gridContainer);
+
+  shopSubscription = supabase
+    .channel('shop-traits-updates')
+    .on(
+      'postgres_changes',
+      {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'shop_traits'
+      },
+      (payload) => {
+        console.log('Shop trait updated:', payload);
+        loadTraits(gridContainer);
+      }
+    )
+    .subscribe();
 }
 
 async function loadTraits(gridContainer) {
@@ -76,6 +107,11 @@ async function loadTraits(gridContainer) {
       const card = gridContainer.querySelector(`[data-trait-id="${trait.id}"]`);
       const addBtn = card.querySelector('.add-to-cart-btn');
       const isOutOfStock = trait.stock_quantity !== null && trait.stock_quantity <= 0;
+
+      const inCart = cart && cart.hasItem(trait.id);
+      if (inCart) {
+        updateCardState(card, addBtn, true);
+      }
 
       addBtn.addEventListener('click', () => {
         if (isOutOfStock) return;
@@ -837,6 +873,10 @@ function showSuccessScreen(container, walletAdapter, transactionSignature) {
         <div class="success-details">
           <p><strong>Transaction:</strong> <a href="https://solscan.io/tx/${transactionSignature}" target="_blank">${transactionSignature.substring(0, 20)}...</a></p>
           <p><strong>Traits Applied:</strong> ${cart.getItemCount()}</p>
+          <div class="success-note" style="margin-top: 20px; padding: 15px; background: rgba(255, 255, 255, 0.1); border-radius: 8px; font-size: 14px; line-height: 1.6;">
+            <p style="margin: 0; color: #fbbf24;"><strong>⏱️ Please Note:</strong></p>
+            <p style="margin: 8px 0 0 0; color: rgba(255, 255, 255, 0.9);">Your updated Trap Star may take up to 15 minutes to appear on Magic Eden and reflect on-chain. The blockchain needs time to process and index the metadata updates.</p>
+          </div>
         </div>
       </div>
       <div class="checkout-actions">
