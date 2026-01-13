@@ -149,6 +149,9 @@
                         <button id="tabTransactions" class="tab-btn active px-6 py-3 text-sm font-semibold">
                             Transactions
                         </button>
+                        <button id="tabShopTransactions" class="tab-btn px-6 py-3 text-sm font-semibold">
+                            Shop Transactions
+                        </button>
                         <button id="tabShop" class="tab-btn px-6 py-3 text-sm font-semibold">
                             Shop Management
                         </button>
@@ -197,6 +200,140 @@
                         </div>
                     </div>
                 </div>
+                </div>
+
+                <!-- Shop Transactions Section -->
+                <div id="shopTransactionsSection" class="hidden">
+                    <!-- Shop Transaction Stats -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
+                        <div class="glass rounded-xl p-6">
+                            <div class="flex items-center justify-between mb-2">
+                                <p class="text-xs text-gray-400 uppercase tracking-wider">Today</p>
+                                <span class="text-2xl">📅</span>
+                            </div>
+                            <p class="text-3xl font-bold" id="shopTxStatsToday">0</p>
+                            <p class="text-xs text-gray-500 mt-1">Shop purchases today</p>
+                        </div>
+
+                        <div class="glass rounded-xl p-6">
+                            <div class="flex items-center justify-between mb-2">
+                                <p class="text-xs text-gray-400 uppercase tracking-wider">All Time</p>
+                                <span class="text-2xl">🎯</span>
+                            </div>
+                            <p class="text-3xl font-bold" id="shopTxStatsAllTime">0</p>
+                            <p class="text-xs text-gray-500 mt-1">Total purchases</p>
+                        </div>
+
+                        <div class="glass rounded-xl p-6">
+                            <div class="flex items-center justify-between mb-2">
+                                <p class="text-xs text-gray-400 uppercase tracking-wider">NFTs Burned</p>
+                                <span class="text-2xl">🔥</span>
+                            </div>
+                            <p class="text-3xl font-bold text-orange-400" id="shopTxStatsBurned">0</p>
+                            <p class="text-xs text-gray-500 mt-1">Via shop purchases</p>
+                        </div>
+
+                        <div class="glass rounded-xl p-6">
+                            <div class="flex items-center justify-between mb-2">
+                                <p class="text-xs text-gray-400 uppercase tracking-wider">SOL Revenue</p>
+                                <span class="text-2xl">💰</span>
+                            </div>
+                            <p class="text-3xl font-bold text-green-400" id="shopTxStatsRevenue">0 SOL</p>
+                            <p class="text-xs text-gray-500 mt-1">Total collected</p>
+                        </div>
+
+                        <div class="glass rounded-xl p-6">
+                            <div class="flex items-center justify-between mb-2">
+                                <p class="text-xs text-gray-400 uppercase tracking-wider">Success Rate</p>
+                                <span class="text-2xl">✅</span>
+                            </div>
+                            <p class="text-3xl font-bold" id="shopTxStatsSuccess">0%</p>
+                            <p class="text-xs text-gray-500 mt-1">Completed purchases</p>
+                        </div>
+                    </div>
+
+                    <!-- Shop Transaction Filters -->
+                    <div class="glass rounded-xl p-6 mb-8">
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                            <div>
+                                <label class="text-xs text-gray-400 uppercase tracking-wider mb-2 block">Payment Method</label>
+                                <select id="shopFilterPayment" class="filter-select w-full">
+                                    <option value="">All Methods</option>
+                                    <option value="burn">Burn Only</option>
+                                    <option value="sol">SOL Only</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label class="text-xs text-gray-400 uppercase tracking-wider mb-2 block">Status</label>
+                                <select id="shopFilterStatus" class="filter-select w-full">
+                                    <option value="">All Statuses</option>
+                                    <option value="pending">Pending</option>
+                                    <option value="completed">Completed</option>
+                                    <option value="failed">Failed</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label class="text-xs text-gray-400 uppercase tracking-wider mb-2 block">Date Range</label>
+                                <select id="shopFilterDateRange" class="filter-select w-full">
+                                    <option value="today">Today</option>
+                                    <option value="week">This Week</option>
+                                    <option value="month">This Month</option>
+                                    <option value="all">All Time</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label class="text-xs text-gray-400 uppercase tracking-wider mb-2 block">Search</label>
+                                <input type="text" id="shopSearchInput" placeholder="Wallet, trait, or NFT..."
+                                    class="filter-select w-full">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Shop Transactions Table -->
+                    <div class="glass rounded-xl overflow-hidden">
+                        <div class="overflow-x-auto">
+                            <table class="w-full">
+                                <thead class="bg-white/5 border-b border-white/10">
+                                    <tr>
+                                        <th class="text-left p-4 text-xs text-gray-400 uppercase tracking-wider">Status</th>
+                                        <th class="text-left p-4 text-xs text-gray-400 uppercase tracking-wider">Date/Time</th>
+                                        <th class="text-left p-4 text-xs text-gray-400 uppercase tracking-wider">Wallet</th>
+                                        <th class="text-left p-4 text-xs text-gray-400 uppercase tracking-wider">Trait</th>
+                                        <th class="text-left p-4 text-xs text-gray-400 uppercase tracking-wider">Payment</th>
+                                        <th class="text-left p-4 text-xs text-gray-400 uppercase tracking-wider">Amount</th>
+                                        <th class="text-left p-4 text-xs text-gray-400 uppercase tracking-wider">Target NFT</th>
+                                        <th class="text-left p-4 text-xs text-gray-400 uppercase tracking-wider">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="shopTransactionsTableBody" class="divide-y divide-white/5">
+                                    <tr>
+                                        <td colspan="8" class="p-8 text-center text-gray-400">
+                                            <div class="spinner mx-auto mb-4"></div>
+                                            Loading shop transactions...
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Pagination -->
+                        <div class="border-t border-white/10 p-4 flex justify-between items-center">
+                            <p class="text-sm text-gray-400">
+                                Showing <span id="shopPageInfo">0-0 of 0</span> transactions
+                            </p>
+                            <div class="flex gap-2">
+                                <button id="shopPrevPageBtn" class="btn-secondary px-4 py-2 rounded-lg text-sm" disabled>
+                                    Previous
+                                </button>
+                                <button id="shopNextPageBtn" class="btn-secondary px-4 py-2 rounded-lg text-sm" disabled>
+                                    Next
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Shop Management Section -->
@@ -305,6 +442,17 @@
                 <button id="closeModalBtn" class="text-gray-400 hover:text-white text-2xl">×</button>
             </div>
             <div id="modalContent"></div>
+        </div>
+    </div>
+
+    <!-- Shop Transaction Detail Modal -->
+    <div id="shopDetailModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center hidden z-50 p-4">
+        <div class="glass rounded-2xl p-6 max-w-5xl w-full max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-start mb-6">
+                <h2 class="text-2xl font-semibold">Shop Transaction Details</h2>
+                <button id="closeShopModalBtn" class="text-gray-400 hover:text-white text-2xl">×</button>
+            </div>
+            <div id="shopModalContent"></div>
         </div>
     </div>
 
