@@ -699,8 +699,8 @@ async function loadShopTraits() {
                     <div class="text-xs text-gray-500 mt-1">Value: ${trait.trait_value || trait.name}</div>
                 </td>
                 <td class="p-4"><span class="text-xs px-2 py-1 rounded-full bg-blue-500/20 text-blue-400">${trait.category}</span></td>
-                <td class="p-4">${trait.burn_cost} NFT${trait.burn_cost !== 1 ? 's' : ''}</td>
-                <td class="p-4">${trait.sol_price} SOL</td>
+                <td class="p-4">${trait.burn_cost === 0 && trait.sol_price === 0 ? '<span class="text-xs px-2 py-1 rounded-full bg-green-500/20 text-green-400 font-bold">FREE</span>' : `${trait.burn_cost} NFT${trait.burn_cost !== 1 ? 's' : ''}`}</td>
+                <td class="p-4">${trait.burn_cost === 0 && trait.sol_price === 0 ? '<span class="text-xs px-2 py-1 rounded-full bg-green-500/20 text-green-400 font-bold">FREE</span>' : `${trait.sol_price} SOL`}</td>
                 <td class="p-4">
                     ${trait.is_active ?
                         '<span class="status-badge completed"><span>✅</span><span>Active</span></span>' :
@@ -746,11 +746,19 @@ async function loadShopPurchases() {
                 </td>
                 <td class="p-4">${purchase.shop_traits?.name || 'Unknown'}</td>
                 <td class="p-4">
-                    <span class="text-xs px-2 py-1 rounded-full ${purchase.payment_method === 'burn' ? 'bg-orange-500/20 text-orange-400' : 'bg-green-500/20 text-green-400'}">
-                        ${purchase.payment_method === 'burn' ? '🔥 Burn' : '💰 SOL'}
+                    <span class="text-xs px-2 py-1 rounded-full ${
+                        purchase.payment_method === 'free' ? 'bg-emerald-500/20 text-emerald-400' :
+                        purchase.payment_method === 'burn' ? 'bg-orange-500/20 text-orange-400' :
+                        'bg-green-500/20 text-green-400'
+                    }">
+                        ${purchase.payment_method === 'free' ? '🎁 FREE' : purchase.payment_method === 'burn' ? '🔥 Burn' : '💰 SOL'}
                     </span>
                 </td>
-                <td class="p-4">${purchase.payment_method === 'burn' ? `${purchase.nfts_burned_count} NFTs` : `${purchase.sol_amount} SOL`}</td>
+                <td class="p-4">${
+                    purchase.payment_method === 'free' ? 'FREE' :
+                    purchase.payment_method === 'burn' ? `${purchase.nfts_burned_count} NFTs` :
+                    `${purchase.sol_amount} SOL`
+                }</td>
                 <td class="p-4">${getStatusBadge(purchase.status)}</td>
             </tr>
         `).join('');
@@ -882,11 +890,15 @@ function renderShopTransactions() {
     }
 
     tbody.innerHTML = pageTransactions.map(tx => {
-        const paymentBadge = tx.payment_method === 'burn'
+        const paymentBadge = tx.payment_method === 'free'
+            ? '<span class="text-xs px-2 py-1 rounded-full bg-emerald-500/20 text-emerald-400">🎁 FREE</span>'
+            : tx.payment_method === 'burn'
             ? '<span class="text-xs px-2 py-1 rounded-full bg-orange-500/20 text-orange-400">🔥 Burn</span>'
             : '<span class="text-xs px-2 py-1 rounded-full bg-green-500/20 text-green-400">💰 SOL</span>';
 
-        const amount = tx.payment_method === 'burn'
+        const amount = tx.payment_method === 'free'
+            ? 'FREE'
+            : tx.payment_method === 'burn'
             ? `${tx.nfts_burned_count || 0} NFTs`
             : `${parseFloat(tx.sol_amount || 0).toFixed(4)} SOL`;
 
@@ -1044,7 +1056,9 @@ window.showShopTransactionDetail = async function(transactionId) {
                     <div class="glass rounded-lg p-4">
                         <p class="text-xs text-gray-400 mb-1">Payment Method</p>
                         <p class="text-lg font-bold">
-                            ${tx.payment_method === 'burn'
+                            ${tx.payment_method === 'free'
+                                ? '<span class="text-emerald-400">🎁 FREE</span>'
+                                : tx.payment_method === 'burn'
                                 ? '<span class="text-orange-400">🔥 Burn</span>'
                                 : '<span class="text-green-400">💰 SOL</span>'}
                         </p>
@@ -1052,7 +1066,9 @@ window.showShopTransactionDetail = async function(transactionId) {
                     <div class="glass rounded-lg p-4">
                         <p class="text-xs text-gray-400 mb-1">Amount</p>
                         <p class="text-lg font-bold">
-                            ${tx.payment_method === 'burn'
+                            ${tx.payment_method === 'free'
+                                ? 'FREE'
+                                : tx.payment_method === 'burn'
                                 ? `${tx.nfts_burned_count || 0} NFTs`
                                 : `${parseFloat(tx.sol_amount || 0).toFixed(4)} SOL`}
                         </p>
@@ -1095,7 +1111,7 @@ Created: ${formatDate(tx.created_at)}
 Trait: ${tx.shop_traits?.name || 'Unknown'} (${tx.shop_traits?.category || 'N/A'})
 Target NFT: ${tx.target_nft_mint}
 Payment Method: ${tx.payment_method}
-Amount: ${tx.payment_method === 'burn' ? `${tx.nfts_burned_count} NFTs` : `${tx.sol_amount} SOL`}`;
+Amount: ${tx.payment_method === 'free' ? 'FREE' : tx.payment_method === 'burn' ? `${tx.nfts_burned_count} NFTs` : `${tx.sol_amount} SOL`}`;
 
     if (tx.payment_method === 'burn' && tx.burned_nfts && tx.burned_nfts.length > 0) {
         details += `\n\nBurned NFTs (${tx.burned_nfts.length} total):\n`;
@@ -1114,7 +1130,7 @@ window.exportShopTransactionCSV = function(transactionId) {
     if (!tx) return;
 
     let csv = `Purchase ID,Status,Wallet,Created,Trait,Category,Target NFT,Payment Method,Amount\n`;
-    csv += `${tx.id},${tx.status},${tx.wallet_address},${tx.created_at},${tx.shop_traits?.name || 'Unknown'},${tx.shop_traits?.category || 'N/A'},${tx.target_nft_mint},${tx.payment_method},${tx.payment_method === 'burn' ? tx.nfts_burned_count : tx.sol_amount}\n`;
+    csv += `${tx.id},${tx.status},${tx.wallet_address},${tx.created_at},${tx.shop_traits?.name || 'Unknown'},${tx.shop_traits?.category || 'N/A'},${tx.target_nft_mint},${tx.payment_method},${tx.payment_method === 'free' ? 'FREE' : tx.payment_method === 'burn' ? tx.nfts_burned_count : tx.sol_amount}\n`;
 
     if (tx.payment_method === 'burn' && tx.burned_nfts && tx.burned_nfts.length > 0) {
         csv += `\nBurned NFTs\n`;

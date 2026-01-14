@@ -101,27 +101,45 @@ async function loadTraits(gridContainer) {
 
     if (error) throw error;
 
-    gridContainer.innerHTML = traits.map(trait => createTraitCard(trait)).join('');
+    const walletAddress = window.solana?.publicKey?.toString();
 
-    traits.forEach(trait => {
+    const traitsWithClaims = await Promise.all(traits.map(async (trait) => {
+      if (trait.max_claims_per_wallet && walletAddress) {
+        const { data: claimData } = await supabase
+          .rpc('can_wallet_claim_trait', {
+            p_wallet_address: walletAddress,
+            p_trait_id: trait.id
+          });
+
+        if (claimData && claimData.length > 0) {
+          return { ...trait, claimInfo: claimData[0] };
+        }
+      }
+      return { ...trait, claimInfo: null };
+    }));
+
+    gridContainer.innerHTML = traitsWithClaims.map(trait => createTraitCard(trait)).join('');
+
+    traitsWithClaims.forEach(trait => {
       const card = gridContainer.querySelector(`[data-trait-id="${trait.id}"]`);
       const addBtn = card.querySelector('.add-to-cart-btn');
       const isOutOfStock = trait.stock_quantity !== null && trait.stock_quantity <= 0;
+      const isClaimLimitReached = trait.claimInfo && !trait.claimInfo.can_claim;
 
       const inCart = cart && cart.hasItem(trait.id);
       if (inCart) {
-        updateCardState(card, addBtn, true);
+        updateCardState(card, addBtn, true, trait);
       }
 
-      addBtn.addEventListener('click', () => {
-        if (isOutOfStock) return;
+      addBtn.addEventListener('click', async () => {
+        if (isOutOfStock || isClaimLimitReached) return;
 
         if (cart.hasItem(trait.id)) {
           cart.removeItem(trait.id);
-          updateCardState(card, addBtn, false);
+          updateCardState(card, addBtn, false, trait);
         } else {
           cart.addItem(trait);
-          updateCardState(card, addBtn, true);
+          updateCardState(card, addBtn, true, trait);
         }
       });
     });
@@ -134,40 +152,97 @@ async function loadTraits(gridContainer) {
 
 function createTraitCard(trait) {
   const isOutOfStock = trait.stock_quantity !== null && trait.stock_quantity <= 0;
-  const stockDisplay = trait.stock_quantity === null
-    ? ''
-    : trait.stock_quantity <= 0
-      ? '<div class="stock-indicator sold-out">SOLD OUT</div>'
-      : trait.stock_quantity <= 5
-        ? `<div class="stock-indicator low-stock">${trait.stock_quantity} left!</div>`
-        : `<div class="stock-indicator in-stock">${trait.stock_quantity} available</div>`;
+  const isFree = trait.burn_cost === 0 && trait.sol_price === 0;
+  const isClaimLimitReached = trait.claimInfo && !trait.claimInfo.can_claim;
+
+  let stockDisplay = '';
+  if (trait.stock_quantity === null) {
+    stockDisplay = '';
+  } else if (trait.stock_quantity <= 0) {
+    stockDisplay = '<div class="stock-indicator sold-out">SOLD OUT</div>';
+  } else if (trait.stock_quantity <= 5) {
+    stockDisplay = `<div class="stock-indicator low-stock">${trait.stock_quantity} left!</div>`;
+  } else {
+    stockDisplay = `<div class="stock-indicator in-stock">${trait.stock_quantity} available</div>`;
+  }
+
+  let claimLimitDisplay = '';
+  if (isFree && trait.max_claims_per_wallet) {
+    if (trait.claimInfo) {
+      if (trait.claimInfo.can_claim) {
+        claimLimitDisplay = `<div class="claim-limit-info" style="background: rgba(34, 197, 94, 0.2); color: #22c55e; padding: 8px; border-radius: 6px; font-size: 13px; margin-top: 8px;">
+          ✓ You can claim ${trait.claimInfo.claims_remaining} more
+        </div>`;
+      } else {
+        claimLimitDisplay = `<div class="claim-limit-info" style="background: rgba(239, 68, 68, 0.2); color: #ef4444; padding: 8px; border-radius: 6px; font-size: 13px; margin-top: 8px;">
+          ⚠ Limit reached (${trait.claimInfo.max_claims} max)
+        </div>`;
+      }
+    } else {
+      claimLimitDisplay = `<div class="claim-limit-info" style="background: rgba(59, 130, 246, 0.2); color: #3b82f6; padding: 8px; border-radius: 6px; font-size: 13px; margin-top: 8px;">
+        Limit: ${trait.max_claims_per_wallet} per wallet
+      </div>`;
+    }
+  }
+
+  let pricingDisplay = '';
+  if (isFree) {
+    pricingDisplay = `
+      <div class="trait-pricing" style="text-align: center; padding: 16px; background: linear-gradient(135deg, rgba(34, 197, 94, 0.2), rgba(16, 185, 129, 0.2)); border-radius: 8px; margin: 12px 0;">
+        <div style="font-size: 28px; font-weight: 800; color: #22c55e; text-shadow: 0 0 20px rgba(34, 197, 94, 0.5);">FREE</div>
+        <div style="font-size: 12px; color: rgba(255, 255, 255, 0.7); margin-top: 4px;">No cost to claim!</div>
+      </div>
+    `;
+  } else {
+    pricingDisplay = `
+      <div class="trait-pricing">
+        <div class="trait-price-option">
+          <span class="trait-price-label">Burn:</span>
+          <span class="trait-price-value">${trait.burn_cost} Trap Star${trait.burn_cost !== 1 ? 's' : ''}</span>
+        </div>
+        <div class="trait-price-option">
+          <span class="trait-price-label">Or Pay:</span>
+          <span class="trait-price-value">${trait.sol_price} SOL</span>
+        </div>
+      </div>
+    `;
+  }
+
+  let buttonText = 'Add to Cart';
+  let buttonDisabled = false;
+  if (isOutOfStock) {
+    buttonText = 'Sold Out';
+    buttonDisabled = true;
+  } else if (isClaimLimitReached) {
+    buttonText = 'Limit Reached';
+    buttonDisabled = true;
+  } else if (isFree) {
+    buttonText = 'Claim Free';
+  }
+
+  const cardClass = `shop-trait-card ${isOutOfStock || isClaimLimitReached ? 'out-of-stock' : ''} ${isFree ? 'free-item' : ''}`;
 
   return `
-    <div class="shop-trait-card ${isOutOfStock ? 'out-of-stock' : ''}" data-trait-id="${trait.id}">
+    <div class="${cardClass}" data-trait-id="${trait.id}">
       <div class="trait-image-container">
+        ${isFree ? '<div class="free-badge" style="position: absolute; top: 10px; right: 10px; background: linear-gradient(135deg, #22c55e, #10b981); color: white; padding: 6px 12px; border-radius: 20px; font-weight: 700; font-size: 13px; box-shadow: 0 4px 12px rgba(34, 197, 94, 0.4);">FREE!</div>' : ''}
         <img src="${trait.image_url}" alt="${trait.name}">
         ${stockDisplay}
       </div>
       <div class="trait-info">
         <h3 class="trait-name">${trait.name}</h3>
         <p class="trait-category">${trait.category}</p>
-        <div class="trait-pricing">
-          <div class="trait-price-option">
-            <span class="trait-price-label">Burn:</span>
-            <span class="trait-price-value">${trait.burn_cost} Trap Star${trait.burn_cost !== 1 ? 's' : ''}</span>
-          </div>
-          <div class="trait-price-option">
-            <span class="trait-price-label">Or Pay:</span>
-            <span class="trait-price-value">${trait.sol_price} SOL</span>
-          </div>
-        </div>
-        <button class="add-to-cart-btn" ${isOutOfStock ? 'disabled' : ''}>${isOutOfStock ? 'Sold Out' : 'Add to Cart'}</button>
+        ${pricingDisplay}
+        ${claimLimitDisplay}
+        <button class="add-to-cart-btn" ${buttonDisabled ? 'disabled' : ''}>${buttonText}</button>
       </div>
     </div>
   `;
 }
 
-function updateCardState(card, button, inCart) {
+function updateCardState(card, button, inCart, trait) {
+  const isFree = trait && trait.burn_cost === 0 && trait.sol_price === 0;
+
   if (inCart) {
     card.classList.add('in-cart');
     button.classList.add('in-cart');
@@ -175,7 +250,7 @@ function updateCardState(card, button, inCart) {
   } else {
     card.classList.remove('in-cart');
     button.classList.remove('in-cart');
-    button.textContent = 'Add to Cart';
+    button.textContent = isFree ? 'Claim Free' : 'Add to Cart';
   }
 }
 
@@ -346,6 +421,13 @@ async function generatePreview(targetNFT, cartItems, previewImgElement) {
 
 function showPaymentSelection(container, walletAdapter) {
   const items = cart.getItems();
+  const allItemsFree = items.every(item => item.burn_cost === 0 && item.sol_price === 0);
+
+  if (allItemsFree) {
+    showOrderConfirmation(container, walletAdapter, 'free');
+    return;
+  }
+
   const totalBurn = cart.getTotalBurnCost();
   const totalSOL = cart.getTotalSOLPrice();
 
@@ -489,7 +571,29 @@ function showOrderConfirmation(container, walletAdapter, paymentMethod) {
   let paymentDetails = '';
   let totalCost = 0;
 
-  if (paymentMethod === 'burn') {
+  if (paymentMethod === 'free') {
+    totalCost = 0;
+    paymentDetails = `
+      <div class="payment-breakdown">
+        <h3 style="color: #22c55e;">Free Claim - No Payment Required</h3>
+        <div style="background: rgba(34, 197, 94, 0.1); border: 2px solid rgba(34, 197, 94, 0.3); border-radius: 12px; padding: 20px; margin: 16px 0;">
+          <div style="text-align: center; margin-bottom: 12px;">
+            <div style="font-size: 48px; margin-bottom: 8px;">🎉</div>
+            <div style="font-size: 20px; font-weight: 700; color: #22c55e; margin-bottom: 8px;">Completely FREE!</div>
+            <div style="font-size: 14px; color: rgba(255, 255, 255, 0.7);">
+              No SOL payment • No NFT burn • Just claim and enjoy!
+            </div>
+          </div>
+          <div class="fee-breakdown" style="margin-top: 16px; padding-top: 16px; border-top: 1px solid rgba(255, 255, 255, 0.1);">
+            <div class="fee-row total" style="justify-content: center;">
+              <span style="font-size: 18px; color: #22c55e;">You Pay:</span>
+              <span style="font-size: 24px; font-weight: 800; color: #22c55e;">0 SOL</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  } else if (paymentMethod === 'burn') {
     totalCost = config.reimbursementSOL;
     paymentDetails = `
       <div class="payment-breakdown">
@@ -575,7 +679,7 @@ function showOrderConfirmation(container, walletAdapter, paymentMethod) {
       </div>
       <div class="checkout-actions">
         <button class="btn-secondary checkout-back">Cancel</button>
-        <button class="btn-primary checkout-confirm">Confirm Purchase</button>
+        <button class="btn-primary checkout-confirm">${paymentMethod === 'free' ? 'Claim Free Trait' : 'Confirm Purchase'}</button>
       </div>
     </div>
   `;
@@ -584,7 +688,9 @@ function showOrderConfirmation(container, walletAdapter, paymentMethod) {
   const confirmBtn = container.querySelector('.checkout-confirm');
 
   backBtn.addEventListener('click', () => {
-    if (paymentMethod === 'burn') {
+    if (paymentMethod === 'free') {
+      showTargetSelection(container, walletAdapter);
+    } else if (paymentMethod === 'burn') {
       showBurnSelection(container, walletAdapter);
     } else {
       showPaymentSelection(container, walletAdapter);
@@ -674,7 +780,9 @@ async function processTransaction(container, walletAdapter, paymentMethod, total
   try {
     let transactionSignature = '';
 
-    if (paymentMethod === 'burn') {
+    if (paymentMethod === 'free') {
+      transactionSignature = 'FREE_CLAIM_' + Date.now();
+    } else if (paymentMethod === 'burn') {
       transactionSignature = await processBurnPayment(selectedBurnNFTs, walletAdapter);
     } else {
       transactionSignature = await processSOLPayment(totalCost, walletAdapter);
@@ -836,9 +944,14 @@ async function recordPurchase(paymentMethod, transactionSignature) {
   const serviceFee = parseFloat(import.meta.env.VITE_SERVICE_FEE);
   const totalFees = reimbursementFee + serviceFee;
 
-  const solAmount = paymentMethod === 'burn'
-    ? totalFees
-    : cart.getTotalSOLPrice() + totalFees;
+  let solAmount = 0;
+  if (paymentMethod === 'free') {
+    solAmount = 0;
+  } else if (paymentMethod === 'burn') {
+    solAmount = totalFees;
+  } else {
+    solAmount = cart.getTotalSOLPrice() + totalFees;
+  }
 
   for (const item of items) {
     await supabase.from('trait_purchases').insert({
