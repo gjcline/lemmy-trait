@@ -697,7 +697,15 @@ async function loadShopTraits() {
                 <td class="p-4">
                     <div class="font-medium">${trait.name}</div>
                     <div class="text-xs text-gray-500 mt-1">Value: ${trait.trait_value || trait.name}</div>
-                    ${trait.max_claims_per_wallet ? `<div class="text-xs text-blue-400 mt-1">Max: ${trait.max_claims_per_wallet}/wallet</div>` : ''}
+                    ${trait.max_claims_per_wallet ? `
+                        <div class="flex items-center gap-2 mt-1">
+                            <span class="text-xs text-blue-400">Max: ${trait.max_claims_per_wallet}/wallet</span>
+                            <button onclick="editMaxClaimsPerWallet('${trait.id}', ${trait.max_claims_per_wallet})"
+                                class="text-blue-400 hover:text-blue-300 text-xs" title="Edit max claims per wallet">
+                                ✏️
+                            </button>
+                        </div>
+                    ` : ''}
                 </td>
                 <td class="p-4"><span class="text-xs px-2 py-1 rounded-full bg-blue-500/20 text-blue-400">${trait.category}</span></td>
                 <td class="p-4">${trait.burn_cost === 0 && trait.sol_price === 0 ? '<span class="text-xs px-2 py-1 rounded-full bg-green-500/20 text-green-400 font-bold">FREE</span>' : `${trait.burn_cost} NFT${trait.burn_cost !== 1 ? 's' : ''}`}</td>
@@ -828,6 +836,39 @@ window.editTraitStock = async function(traitId, currentStock) {
     } catch (error) {
         console.error('Error updating stock:', error);
         showToast('Error', 'Failed to update stock quantity', '❌');
+    }
+};
+
+window.editMaxClaimsPerWallet = async function(traitId, currentMax) {
+    if (!supabase) return;
+
+    const newMax = prompt(
+        `Enter max claims per wallet (current: ${currentMax})\n\nEnter a number or leave empty to remove limit:`,
+        currentMax !== null ? currentMax : ''
+    );
+
+    if (newMax === null) return;
+
+    const maxValue = newMax.trim() === '' ? null : parseInt(newMax);
+
+    if (newMax.trim() !== '' && (isNaN(maxValue) || maxValue < 1)) {
+        showToast('Invalid Input', 'Please enter a valid number (1 or more) or leave empty to remove limit', '❌');
+        return;
+    }
+
+    try {
+        const { error } = await supabase
+            .from('shop_traits')
+            .update({ max_claims_per_wallet: maxValue })
+            .eq('id', traitId);
+
+        if (error) throw error;
+
+        showToast('Max Claims Updated', `Max claims ${maxValue !== null ? `set to ${maxValue} per wallet` : 'limit removed'}`, '✅');
+        await loadShopTraits();
+    } catch (error) {
+        console.error('Error updating max claims:', error);
+        showToast('Error', 'Failed to update max claims per wallet', '❌');
     }
 };
 
