@@ -685,7 +685,7 @@ async function loadShopTraits() {
 
         const tbody = document.getElementById('traitsTableBody');
         if (traits.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="7" class="p-8 text-center text-gray-400">No traits found</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="8" class="p-8 text-center text-gray-400">No traits found</td></tr>';
             return;
         }
 
@@ -697,10 +697,22 @@ async function loadShopTraits() {
                 <td class="p-4">
                     <div class="font-medium">${trait.name}</div>
                     <div class="text-xs text-gray-500 mt-1">Value: ${trait.trait_value || trait.name}</div>
+                    ${trait.max_claims_per_wallet ? `<div class="text-xs text-blue-400 mt-1">Max: ${trait.max_claims_per_wallet}/wallet</div>` : ''}
                 </td>
                 <td class="p-4"><span class="text-xs px-2 py-1 rounded-full bg-blue-500/20 text-blue-400">${trait.category}</span></td>
                 <td class="p-4">${trait.burn_cost === 0 && trait.sol_price === 0 ? '<span class="text-xs px-2 py-1 rounded-full bg-green-500/20 text-green-400 font-bold">FREE</span>' : `${trait.burn_cost} NFT${trait.burn_cost !== 1 ? 's' : ''}`}</td>
                 <td class="p-4">${trait.burn_cost === 0 && trait.sol_price === 0 ? '<span class="text-xs px-2 py-1 rounded-full bg-green-500/20 text-green-400 font-bold">FREE</span>' : `${trait.sol_price} SOL`}</td>
+                <td class="p-4">
+                    <div class="flex items-center gap-2">
+                        <span class="font-medium ${trait.stock_quantity !== null && trait.stock_quantity <= 5 ? 'text-orange-400' : 'text-gray-300'}">
+                            ${trait.stock_quantity !== null ? trait.stock_quantity : '∞'}
+                        </span>
+                        <button onclick="editTraitStock('${trait.id}', ${trait.stock_quantity})"
+                            class="text-blue-400 hover:text-blue-300 text-xs" title="Edit stock">
+                            ✏️
+                        </button>
+                    </div>
+                </td>
                 <td class="p-4">
                     ${trait.is_active ?
                         '<span class="status-badge completed"><span>✅</span><span>Active</span></span>' :
@@ -783,6 +795,39 @@ window.toggleTraitStatus = async function(traitId, newStatus) {
     } catch (error) {
         console.error('Error updating trait:', error);
         showToast('Error', 'Failed to update trait status', '❌');
+    }
+};
+
+window.editTraitStock = async function(traitId, currentStock) {
+    if (!supabase) return;
+
+    const newStock = prompt(
+        `Enter new stock quantity (current: ${currentStock !== null ? currentStock : 'unlimited'})\n\nEnter a number or leave empty for unlimited:`,
+        currentStock !== null ? currentStock : ''
+    );
+
+    if (newStock === null) return;
+
+    const stockValue = newStock.trim() === '' ? null : parseInt(newStock);
+
+    if (newStock.trim() !== '' && (isNaN(stockValue) || stockValue < 0)) {
+        showToast('Invalid Input', 'Please enter a valid number or leave empty for unlimited', '❌');
+        return;
+    }
+
+    try {
+        const { error } = await supabase
+            .from('shop_traits')
+            .update({ stock_quantity: stockValue })
+            .eq('id', traitId);
+
+        if (error) throw error;
+
+        showToast('Stock Updated', `Stock ${stockValue !== null ? `set to ${stockValue}` : 'set to unlimited'}`, '✅');
+        await loadShopTraits();
+    } catch (error) {
+        console.error('Error updating stock:', error);
+        showToast('Error', 'Failed to update stock quantity', '❌');
     }
 };
 

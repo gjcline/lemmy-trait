@@ -13,6 +13,7 @@ export const BACKGROUND_URLS = {
     'Lambo': 'https://res.cloudinary.com/dhirimesk/image/upload/v1763774740/Lambo_ccuzd7.png',
     'Lights': 'https://res.cloudinary.com/dhirimesk/image/upload/v1763774731/Lights_khnhck.png',
     'Locked Up': 'https://res.cloudinary.com/dhirimesk/image/upload/v1763774746/Locked_Up_cv55tw.png',
+    'Maduro': 'https://trapstars-assets.netlify.app/background/madurobg.png',
     'Mansion': 'https://res.cloudinary.com/dhirimesk/image/upload/v1763774738/Mansion_inrdzm.png',
     'Metal': 'https://res.cloudinary.com/dhirimesk/image/upload/v1763774738/Metal_unfq5u.png',
     'Moon': 'https://res.cloudinary.com/dhirimesk/image/upload/v1763774736/Moon_pgkcx2.png',
