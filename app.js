@@ -309,8 +309,13 @@ async function connectWallet(walletType, provider) {
         showStatus(`Connecting to ${walletName}...`, 'info');
 
         const resp = await provider.connect();
-        state.walletAddress = resp.publicKey.toString();
+        const publicKey = resp?.publicKey || provider.publicKey;
 
+        if (!publicKey) {
+            throw new Error('Unable to retrieve wallet public key');
+        }
+
+        state.walletAddress = publicKey.toString();
         setWalletProvider(walletType, provider);
 
         console.log(`✅ ${walletName} wallet connected:`, state.walletAddress);
