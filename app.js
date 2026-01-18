@@ -11,6 +11,7 @@ window.global = window;
 
 import { DotShaderBackground } from './shader-background.js';
 import { getBackgroundUrl } from './background-urls.js';
+import { detectWallets, setWalletProvider, clearWalletProvider, getWalletProvider, getWalletType, WALLET_TYPES } from './wallet-provider.js';
 
 // Netlify assets base URL
 const NETLIFY_ASSETS_BASE = 'https://trapstars-assets.netlify.app';
@@ -146,17 +147,19 @@ async function init() {
     // Auto-load trait layers from public folder
     await loadTraitLayersFromPublic();
 
-    // Check for Phantom
-    if (window.solana && window.solana.isPhantom) {
-        console.log('✅ Phantom wallet detected');
+    // Check for wallets
+    const availableWallets = detectWallets();
+    if (availableWallets.length > 0) {
+        console.log(`✅ Detected wallets:`, availableWallets.map(w => w.name).join(', '));
     } else {
-        showStatus('⚠️ Phantom wallet not detected. Please install from phantom.app', 'error');
+        showStatus('⚠️ No wallet detected. Please install Phantom or SolFlare.', 'error');
     }
 }
 
 // Set up all event listeners
 function setupEventListeners() {
-    document.getElementById('connectBtn').addEventListener('click', connectWallet);
+    document.getElementById('connectBtn').addEventListener('click', showWalletModal);
+    document.getElementById('closeWalletModal').addEventListener('click', hideWalletModal);
     document.getElementById('disconnectBtn').addEventListener('click', disconnectWallet);
     document.getElementById('refreshBtn').addEventListener('click', () => fetchUserNFTs(state.walletAddress));
     document.getElementById('backToSelectionBtn').addEventListener('click', backToSelection);
@@ -260,29 +263,61 @@ function hideProgressModal() {
 
 // Removed toggleUploadPanel - upload functionality removed
 
+// Show wallet selection modal
+function showWalletModal() {
+    const availableWallets = detectWallets();
+
+    if (availableWallets.length === 0) {
+        alert('No wallet detected!\n\nPlease install one of the supported wallets:\n• Phantom (phantom.app)\n• SolFlare (solflare.com)\n\nThen refresh this page and try again.');
+        return;
+    }
+
+    const walletModal = document.getElementById('walletModal');
+    const walletOptions = document.getElementById('walletOptions');
+
+    walletOptions.innerHTML = '';
+
+    availableWallets.forEach(wallet => {
+        const button = document.createElement('button');
+        button.className = 'w-full glass-light rounded-xl p-4 hover:bg-white/10 transition-all duration-200 flex items-center gap-4';
+        button.innerHTML = `
+            <span class="text-3xl">${wallet.icon}</span>
+            <div class="flex-1 text-left">
+                <div class="font-semibold text-lg">${wallet.name}</div>
+                <div class="text-sm text-gray-400">Connect with ${wallet.name}</div>
+            </div>
+            <span class="text-gray-400">→</span>
+        `;
+        button.addEventListener('click', () => connectWallet(wallet.type, wallet.provider));
+        walletOptions.appendChild(button);
+    });
+
+    walletModal.classList.remove('hidden');
+}
+
+function hideWalletModal() {
+    document.getElementById('walletModal').classList.add('hidden');
+}
+
 // Wallet connection
-async function connectWallet() {
-    console.log('🔌 Connecting wallet...');
-    
+async function connectWallet(walletType, provider) {
+    console.log(`🔌 Connecting ${walletType} wallet...`);
+    hideWalletModal();
+
     try {
-        if (!window.solana || !window.solana.isPhantom) {
-            alert('Phantom wallet not detected!\n\nPlease:\n1. Install Phantom from phantom.app\n2. Refresh this page\n3. Try again');
-            return;
-        }
-        
-        showStatus('Connecting to Phantom...', 'info');
-        
-        const resp = await window.solana.connect();
+        const walletName = walletType === WALLET_TYPES.PHANTOM ? 'Phantom' : 'SolFlare';
+        showStatus(`Connecting to ${walletName}...`, 'info');
+
+        const resp = await provider.connect();
         state.walletAddress = resp.publicKey.toString();
 
-        // Store wallet adapter for swap transactions
-        window.walletAdapter = window.solana;
+        setWalletProvider(walletType, provider);
 
-        console.log('✅ Wallet connected:', state.walletAddress);
-        
-        document.getElementById('walletAddress').textContent = 
+        console.log(`✅ ${walletName} wallet connected:`, state.walletAddress);
+
+        document.getElementById('walletAddress').textContent =
             state.walletAddress.slice(0, 4) + '...' + state.walletAddress.slice(-4);
-        
+
         hideElement(document.getElementById('connectSection'));
         showElement(document.getElementById('walletInfo'));
 
@@ -299,9 +334,13 @@ async function connectWallet() {
 }
 
 async function disconnectWallet() {
-    await window.solana.disconnect();
+    const provider = getWalletProvider();
+    if (provider) {
+        await provider.disconnect();
+    }
+
+    clearWalletProvider();
     state.walletAddress = null;
-    window.walletAdapter = null;
     state.nfts = [];
     state.mode = null;
     state.swap = {
@@ -414,10 +453,14 @@ async function enterShopMode() {
 }
 
 function getWalletAdapter() {
+    const provider = getWalletProvider();
+    if (!provider) {
+        return null;
+    }
     return {
-        publicKey: window.solana?.publicKey,
-        signTransaction: async (tx) => await window.solana.signTransaction(tx),
-        signAllTransactions: async (txs) => await window.solana.signAllTransactions(txs)
+        publicKey: provider.publicKey,
+        signTransaction: async (tx) => await provider.signTransaction(tx),
+        signAllTransactions: async (txs) => await provider.signAllTransactions(txs)
     };
 }
 

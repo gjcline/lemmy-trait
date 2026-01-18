@@ -1,4 +1,5 @@
 import './shader-background.js';
+import { detectWallets, setWalletProvider, clearWalletProvider, getWalletProvider, WALLET_TYPES } from './wallet-provider.js';
 
 // Helper function to normalize IPFS URLs to use ipfs.io gateway
 function normalizeIPFSUrl(url) {
@@ -110,13 +111,20 @@ function getSolscanLink(signature) {
 
 async function connectWallet() {
     try {
-        if (!window.solana || !window.solana.isPhantom) {
-            alert('Please install Phantom wallet');
+        const availableWallets = detectWallets();
+
+        if (availableWallets.length === 0) {
+            alert('No wallet detected!\n\nPlease install Phantom or SolFlare wallet.');
             return;
         }
 
-        const response = await window.solana.connect();
+        const provider = availableWallets[0].provider;
+        const walletType = availableWallets[0].type;
+
+        const response = await provider.connect();
         wallet = response.publicKey.toString();
+
+        setWalletProvider(walletType, provider);
 
         console.log('Connected wallet:', wallet);
         console.log('Checking against admin wallets:', ADMIN_WALLETS);
@@ -152,9 +160,11 @@ async function connectWallet() {
 }
 
 function disconnectWallet() {
-    if (window.solana) {
-        window.solana.disconnect();
+    const provider = getWalletProvider();
+    if (provider) {
+        provider.disconnect();
     }
+    clearWalletProvider();
     wallet = null;
 
     if (realtimeChannel) {

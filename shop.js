@@ -101,7 +101,7 @@ async function loadTraits(gridContainer) {
 
     if (error) throw error;
 
-    const walletAddress = window.solana?.publicKey?.toString();
+    const walletAddress = walletAdapter?.publicKey?.toString();
 
     const traitsWithClaims = await Promise.all(traits.map(async (trait) => {
       if (trait.max_claims_per_wallet && walletAddress) {
@@ -794,7 +794,7 @@ async function processTransaction(container, walletAdapter, paymentMethod, total
 
     updateProgressStep(container, 3);
 
-    await recordPurchase(paymentMethod, transactionSignature);
+    await recordPurchase(paymentMethod, transactionSignature, walletAdapter);
 
     updateProgressStep(container, 4);
 
@@ -936,9 +936,9 @@ async function applyTraitsToNFT(targetNFT, items) {
   console.log('✅ Metadata update complete');
 }
 
-async function recordPurchase(paymentMethod, transactionSignature) {
+async function recordPurchase(paymentMethod, transactionSignature, walletAdapter) {
   const items = cart.getItems();
-  const walletAddress = window.solana?.publicKey?.toString() || 'unknown';
+  const walletAddress = walletAdapter?.publicKey?.toString() || 'unknown';
 
   const reimbursementFee = parseFloat(import.meta.env.VITE_REIMBURSEMENT_FEE);
   const serviceFee = parseFloat(import.meta.env.VITE_SERVICE_FEE);
