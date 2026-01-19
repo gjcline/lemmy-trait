@@ -200,7 +200,8 @@ export async function executeSwap(walletAdapter, donorNFT, recipientNFT, trait, 
         results.serviceFeeSignature = await transferSOL(
             walletAdapter,
             collectionWallet,
-            serviceFee
+            serviceFee,
+            'Service Fee - Trap Star Trait Swap'
         );
 
         if (transaction.id) {
@@ -214,7 +215,8 @@ export async function executeSwap(walletAdapter, donorNFT, recipientNFT, trait, 
         results.reimbursementFeeSignature = await transferSOL(
             walletAdapter,
             reimbursementWallet,
-            reimbursementFee
+            reimbursementFee,
+            'Update Processing Fee'
         );
 
         if (transaction.id) {
@@ -229,7 +231,8 @@ export async function executeSwap(walletAdapter, donorNFT, recipientNFT, trait, 
             walletAdapter,
             donorNFT.mint,
             collectionWallet,
-            collectionAddress
+            collectionAddress,
+            `Transferring Trap Star ${donorNFT.name} to Burn Wallet`
         );
 
         if (transaction.id) {

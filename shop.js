@@ -832,14 +832,26 @@ async function processBurnPayment(nftsToBurn, walletAdapter) {
 
   for (let i = 0; i < nftsToBurn.length; i++) {
     const nft = nftsToBurn[i];
-    const signature = await transferNFT(walletAdapter, nft.mint, collectionWallet, collectionAddress);
+    const nftName = nft.name || 'Trap Star';
+    const signature = await transferNFT(
+      walletAdapter,
+      nft.mint,
+      collectionWallet,
+      collectionAddress,
+      `Transferring ${nftName} to Burn Wallet - Shop Purchase`
+    );
 
     if (i === 0) {
       firstSignature = signature;
     }
   }
 
-  await transferSOL(walletAdapter, reimbursementWallet, reimbursementFee);
+  await transferSOL(
+    walletAdapter,
+    reimbursementWallet,
+    reimbursementFee,
+    'Shop Processing Fee - 0.05 SOL'
+  );
 
   return firstSignature;
 }
@@ -855,9 +867,23 @@ async function processSOLPayment(amount, walletAdapter) {
   const itemsTotal = cart.getTotalSOLPrice();
   const collectionAmount = itemsTotal + serviceFee;
 
-  const collectionSignature = await transferSOL(walletAdapter, collectionWallet, collectionAmount);
+  const items = cart.getItems();
+  const itemNames = items.map(item => item.name).join(', ');
+  const purchaseMemo = `Shop Purchase: ${itemNames}`;
 
-  await transferSOL(walletAdapter, reimbursementWallet, reimbursementFee);
+  const collectionSignature = await transferSOL(
+    walletAdapter,
+    collectionWallet,
+    collectionAmount,
+    purchaseMemo
+  );
+
+  await transferSOL(
+    walletAdapter,
+    reimbursementWallet,
+    reimbursementFee,
+    'Shop Processing Fee - 0.05 SOL'
+  );
 
   return collectionSignature;
 }

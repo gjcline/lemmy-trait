@@ -1,11 +1,12 @@
 // Trap Stars Trait Shop - Blockchain Module
 // Handles all blockchain transactions: SOL transfers, NFT transfers, metadata updates
 
-import { Connection, PublicKey, Transaction, SystemProgram, LAMPORTS_PER_SOL } from '@solana/web3.js';
+import { Connection, PublicKey, Transaction, SystemProgram, LAMPORTS_PER_SOL, TransactionInstruction } from '@solana/web3.js';
 import { createUmi } from '@metaplex-foundation/umi-bundle-defaults';
 import { transferV1 } from '@metaplex-foundation/mpl-core';
 import { walletAdapterIdentity } from '@metaplex-foundation/umi-signer-wallet-adapters';
-import { publicKey as umiPublicKey } from '@metaplex-foundation/umi';
+import { publicKey as umiPublicKey, transactionBuilder } from '@metaplex-foundation/umi';
+import { MEMO_PROGRAM_ID } from '@solana/spl-memo';
 
 /**
  * Get RPC endpoint from environment
@@ -19,19 +20,48 @@ function getRpcEndpoint() {
 }
 
 /**
+ * Create a memo instruction for adding transaction descriptions
+ * @param {string} memo - The memo text to attach to the transaction
+ * @param {PublicKey} signerPubkey - The public key of the transaction signer
+ * @returns {TransactionInstruction} Memo instruction
+ */
+function createMemoInstruction(memo, signerPubkey) {
+    const MAX_MEMO_LENGTH = 566;
+    const truncatedMemo = memo.length > MAX_MEMO_LENGTH
+        ? memo.substring(0, MAX_MEMO_LENGTH - 3) + '...'
+        : memo;
+
+    return new TransactionInstruction({
+        keys: [{ pubkey: signerPubkey, isSigner: true, isWritable: false }],
+        programId: new PublicKey(MEMO_PROGRAM_ID),
+        data: Buffer.from(truncatedMemo, 'utf-8')
+    });
+}
+
+/**
  * Transfer SOL from user's wallet to a recipient
  * @param {Object} walletAdapter - Phantom wallet adapter
  * @param {string} recipientAddress - Recipient wallet address
  * @param {number} amountSOL - Amount in SOL to transfer
+ * @param {string} memo - Optional transaction description/memo
  * @returns {Promise<string>} Transaction signature
  */
-export async function transferSOL(walletAdapter, recipientAddress, amountSOL) {
+export async function transferSOL(walletAdapter, recipientAddress, amountSOL, memo = null) {
     console.log(`💸 Transferring ${amountSOL} SOL to ${recipientAddress}...`);
+    if (memo) {
+        console.log(`📝 With memo: ${memo}`);
+    }
 
     try {
         const connection = new Connection(getRpcEndpoint(), 'confirmed');
 
-        const transaction = new Transaction().add(
+        const transaction = new Transaction();
+
+        if (memo) {
+            transaction.add(createMemoInstruction(memo, walletAdapter.publicKey));
+        }
+
+        transaction.add(
             SystemProgram.transfer({
                 fromPubkey: walletAdapter.publicKey,
                 toPubkey: new PublicKey(recipientAddress),
@@ -71,21 +101,45 @@ export async function transferSOL(walletAdapter, recipientAddress, amountSOL) {
  * @param {string} nftMint - NFT mint address
  * @param {string} recipientAddress - Recipient wallet address
  * @param {string} collectionAddress - Collection address for verification
+ * @param {string} memo - Optional transaction description/memo
  * @returns {Promise<string>} Transaction signature
  */
-export async function transferNFT(walletAdapter, nftMint, recipientAddress, collectionAddress) {
+export async function transferNFT(walletAdapter, nftMint, recipientAddress, collectionAddress, memo = null) {
     console.log(`🎨 Transferring NFT ${nftMint} to ${recipientAddress}...`);
+    if (memo) {
+        console.log(`📝 With memo: ${memo}`);
+    }
 
     try {
         const umi = createUmi(getRpcEndpoint());
         umi.use(walletAdapterIdentity(walletAdapter));
 
         console.log('📝 Creating transfer transaction...');
-        const tx = await transferV1(umi, {
+
+        let builder = transferV1(umi, {
             asset: umiPublicKey(nftMint),
             collection: umiPublicKey(collectionAddress),
             newOwner: umiPublicKey(recipientAddress)
-        }).sendAndConfirm(umi);
+        });
+
+        if (memo) {
+            const MAX_MEMO_LENGTH = 566;
+            const truncatedMemo = memo.length > MAX_MEMO_LENGTH
+                ? memo.substring(0, MAX_MEMO_LENGTH - 3) + '...'
+                : memo;
+
+            builder = builder.prepend({
+                instruction: {
+                    programId: umiPublicKey(MEMO_PROGRAM_ID.toString()),
+                    keys: [{ pubkey: umi.identity.publicKey, isSigner: true, isWritable: false }],
+                    data: new Uint8Array(Buffer.from(truncatedMemo, 'utf-8'))
+                },
+                signers: [umi.identity],
+                bytesCreatedOnChain: 0
+            });
+        }
+
+        const tx = await builder.sendAndConfirm(umi);
 
         const signature = tx.signature.toString();
         console.log(`✅ NFT transfer complete: ${signature}`);
