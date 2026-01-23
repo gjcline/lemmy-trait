@@ -14,6 +14,56 @@ let selectedBurnNFTs = [];
 let userNFTs = [];
 let previewImage = null;
 let shopSubscription = null;
+let purchaseRecords = [];
+
+async function logTransaction(purchaseId, level, step, message, details = {}) {
+  try {
+    console.log(`[${level.toUpperCase()}] [${step}] ${message}`, details);
+
+    await supabase.from('transaction_logs').insert({
+      purchase_id: purchaseId,
+      log_level: level,
+      step: step,
+      message: message,
+      details: details
+    });
+  } catch (error) {
+    console.error('Failed to log transaction:', error);
+  }
+}
+
+async function updatePurchaseStatus(purchaseId, status, step, errorCode = null, errorMessage = null, errorDetails = null) {
+  try {
+    console.log(`[STATUS UPDATE] Purchase ${purchaseId}: ${status} (${step})`, {
+      errorCode,
+      errorMessage,
+      errorDetails
+    });
+
+    const updateData = {
+      status: status,
+      transaction_step: step,
+      updated_at: new Date().toISOString()
+    };
+
+    if (errorCode) updateData.error_code = errorCode;
+    if (errorMessage) updateData.error_message = errorMessage;
+    if (errorDetails) updateData.error_details = errorDetails;
+    if (status === 'completed') updateData.completed_at = new Date().toISOString();
+    if (step === 'payment' && status !== 'failed') updateData.payment_started_at = new Date().toISOString();
+
+    const { error } = await supabase
+      .from('trait_purchases')
+      .update(updateData)
+      .eq('id', purchaseId);
+
+    if (error) {
+      console.error('Failed to update purchase status:', error);
+    }
+  } catch (error) {
+    console.error('Error in updatePurchaseStatus:', error);
+  }
+}
 
 export async function loadShop(container, walletAdapter) {
   container.innerHTML = '';
@@ -702,53 +752,105 @@ function showOrderConfirmation(container, walletAdapter, paymentMethod) {
   });
 }
 
-async function validateStockAvailability() {
+async function reserveStockForCart(walletAdapter, paymentMethod, solAmount) {
   const items = cart.getItems();
-  const outOfStockItems = [];
+  const walletAddress = walletAdapter?.publicKey?.toString() || 'unknown';
+  const targetMint = selectedTargetNFT?.mint || selectedTargetNFT?.id || 'unknown';
+
+  purchaseRecords = [];
+  const failedItems = [];
+
+  console.log('[RESERVATION] Starting stock reservation for', items.length, 'items');
+  console.log('[RESERVATION] Wallet:', walletAddress);
+  console.log('[RESERVATION] Target NFT:', targetMint);
+  console.log('[RESERVATION] Payment method:', paymentMethod);
 
   for (const item of items) {
-    const { data, error } = await supabase
-      .rpc('check_trait_stock', { trait_uuid: item.id });
+    try {
+      console.log(`[RESERVATION] Reserving stock for ${item.name} (${item.id})`);
 
-    if (error) {
-      console.error('Stock check error:', error);
+      const { data, error } = await supabase.rpc('reserve_trait_stock', {
+        trait_uuid: item.id,
+        wallet_addr: walletAddress,
+        target_mint: targetMint,
+        payment_type: paymentMethod,
+        sol_amt: solAmount
+      });
+
+      if (error) {
+        console.error(`[RESERVATION ERROR] Failed to reserve ${item.name}:`, error);
+
+        if (error.message && error.message.includes('STOCK_DEPLETED')) {
+          failedItems.push({
+            name: item.name,
+            reason: 'out_of_stock',
+            message: `${item.name} just sold out`
+          });
+        } else {
+          failedItems.push({
+            name: item.name,
+            reason: 'reservation_failed',
+            message: `Failed to reserve ${item.name}`
+          });
+        }
+      } else {
+        console.log(`[RESERVATION SUCCESS] Reserved ${item.name}, Purchase ID:`, data);
+        purchaseRecords.push({
+          purchaseId: data,
+          traitId: item.id,
+          traitName: item.name
+        });
+      }
+    } catch (error) {
+      console.error(`[RESERVATION EXCEPTION] Error reserving ${item.name}:`, error);
+      failedItems.push({
+        name: item.name,
+        reason: 'exception',
+        message: error.message || 'Unknown error'
+      });
+    }
+  }
+
+  if (failedItems.length > 0) {
+    console.error('[RESERVATION FAILED] Failed to reserve', failedItems.length, 'items:', failedItems);
+
+    for (const record of purchaseRecords) {
+      await updatePurchaseStatus(
+        record.purchaseId,
+        'failed',
+        'validation',
+        'CART_PARTIAL_RESERVATION',
+        'Some items in cart could not be reserved',
+        { failedItems }
+      );
+    }
+
+    const outOfStockItems = failedItems.filter(f => f.reason === 'out_of_stock');
+    if (outOfStockItems.length > 0) {
+      const itemsList = outOfStockItems.map(f => f.name).join(', ');
       return {
         success: false,
-        message: 'Failed to verify stock availability. Please try again.'
+        error_code: 'STOCK_DEPLETED',
+        message: `The following items just sold out while you were checking out: ${itemsList}. Please remove them from your cart and try again.`
       };
     }
 
-    if (data && data.length > 0) {
-      const stockInfo = data[0];
-      if (!stockInfo.available) {
-        outOfStockItems.push(stockInfo.trait_name);
-      }
-    }
-  }
-
-  if (outOfStockItems.length > 0) {
-    const itemsList = outOfStockItems.join(', ');
     return {
       success: false,
-      message: `The following items are out of stock: ${itemsList}. Please remove them from your cart and try again.`
+      error_code: 'RESERVATION_FAILED',
+      message: 'Failed to reserve items in your cart. Please try again.'
     };
   }
 
-  return { success: true };
+  console.log('[RESERVATION SUCCESS] All items reserved successfully:', purchaseRecords.length);
+  return {
+    success: true,
+    purchaseIds: purchaseRecords.map(r => r.purchaseId)
+  };
 }
 
 async function processTransaction(container, walletAdapter, paymentMethod, totalCost) {
-  try {
-    const stockValidation = await validateStockAvailability();
-    if (!stockValidation.success) {
-      showFailureScreen(container, walletAdapter, stockValidation.message);
-      return;
-    }
-  } catch (error) {
-    console.error('Stock validation error:', error);
-    showFailureScreen(container, walletAdapter, 'Failed to validate stock availability. Please try again.');
-    return;
-  }
+  console.log('[TRANSACTION START] Payment method:', paymentMethod, 'Total cost:', totalCost);
 
   container.innerHTML = `
     <link rel="stylesheet" href="/shop-styles.css">
@@ -758,6 +860,10 @@ async function processTransaction(container, walletAdapter, paymentMethod, total
       </div>
       <div class="transaction-progress">
         <div class="progress-step active">
+          <div class="progress-icon">🔒</div>
+          <p>Reserving stock...</p>
+        </div>
+        <div class="progress-step">
           <div class="progress-icon">⏳</div>
           <p>Processing payment...</p>
         </div>
@@ -778,33 +884,179 @@ async function processTransaction(container, walletAdapter, paymentMethod, total
   `;
 
   try {
-    let transactionSignature = '';
+    const reservationResult = await reserveStockForCart(walletAdapter, paymentMethod, totalCost);
 
-    if (paymentMethod === 'free') {
-      transactionSignature = 'FREE_CLAIM_' + Date.now();
-    } else if (paymentMethod === 'burn') {
-      transactionSignature = await processBurnPayment(selectedBurnNFTs, walletAdapter);
-    } else {
-      transactionSignature = await processSOLPayment(totalCost, walletAdapter);
+    if (!reservationResult.success) {
+      console.error('[TRANSACTION FAILED] Reservation failed:', reservationResult);
+      showFailureScreen(
+        container,
+        walletAdapter,
+        reservationResult.message,
+        reservationResult.error_code
+      );
+      return;
     }
 
+    console.log('[TRANSACTION] Stock reserved, proceeding with payment');
     updateProgressStep(container, 2);
 
-    await applyTraitsToNFT(selectedTargetNFT, cart.getItems());
+    let transactionSignature = '';
 
+    try {
+      for (const record of purchaseRecords) {
+        await updatePurchaseStatus(record.purchaseId, 'pending', 'payment');
+        await logTransaction(record.purchaseId, 'info', 'payment', `Starting ${paymentMethod} payment`);
+      }
+
+      if (paymentMethod === 'free') {
+        transactionSignature = 'FREE_CLAIM_' + Date.now();
+        console.log('[PAYMENT] Free claim, no payment required');
+      } else if (paymentMethod === 'burn') {
+        console.log('[PAYMENT] Processing burn payment');
+        transactionSignature = await processBurnPayment(selectedBurnNFTs, walletAdapter);
+        console.log('[PAYMENT] Burn payment successful:', transactionSignature);
+      } else {
+        console.log('[PAYMENT] Processing SOL payment');
+        transactionSignature = await processSOLPayment(totalCost, walletAdapter);
+        console.log('[PAYMENT] SOL payment successful:', transactionSignature);
+      }
+
+      for (const record of purchaseRecords) {
+        await updatePurchaseStatus(record.purchaseId, 'pending', 'burn');
+        await logTransaction(record.purchaseId, 'info', 'payment', 'Payment completed', {
+          signature: transactionSignature,
+          method: paymentMethod
+        });
+      }
+    } catch (paymentError) {
+      console.error('[PAYMENT ERROR]', paymentError);
+
+      for (const record of purchaseRecords) {
+        await updatePurchaseStatus(
+          record.purchaseId,
+          'failed',
+          'payment',
+          'PAYMENT_FAILED',
+          paymentError.message || 'Payment failed',
+          {
+            error: paymentError.toString(),
+            method: paymentMethod,
+            amount: totalCost
+          }
+        );
+        await logTransaction(record.purchaseId, 'error', 'payment', 'Payment failed', {
+          error: paymentError.message,
+          stack: paymentError.stack
+        });
+      }
+
+      const userMessage = paymentError.message?.includes('User rejected')
+        ? 'Payment was cancelled. Your items are still reserved for 10 minutes if you want to try again.'
+        : `Payment failed: ${paymentError.message}. Your items are still reserved for 10 minutes.`;
+
+      showFailureScreen(container, walletAdapter, userMessage, 'PAYMENT_FAILED');
+      return;
+    }
+
+    console.log('[TRANSACTION] Payment complete, applying traits');
     updateProgressStep(container, 3);
 
-    await recordPurchase(paymentMethod, transactionSignature, walletAdapter);
+    try {
+      for (const record of purchaseRecords) {
+        await updatePurchaseStatus(record.purchaseId, 'pending', 'metadata');
+        await logTransaction(record.purchaseId, 'info', 'metadata', 'Starting metadata update');
+      }
 
+      await applyTraitsToNFT(selectedTargetNFT, cart.getItems());
+
+      for (const record of purchaseRecords) {
+        await logTransaction(record.purchaseId, 'info', 'metadata', 'Metadata updated successfully');
+      }
+    } catch (metadataError) {
+      console.error('[METADATA ERROR]', metadataError);
+
+      for (const record of purchaseRecords) {
+        await updatePurchaseStatus(
+          record.purchaseId,
+          'failed',
+          'metadata',
+          'METADATA_FAILED',
+          metadataError.message || 'Failed to update NFT metadata',
+          {
+            error: metadataError.toString(),
+            nft_mint: selectedTargetNFT?.mint || selectedTargetNFT?.id
+          }
+        );
+        await logTransaction(record.purchaseId, 'error', 'metadata', 'Metadata update failed', {
+          error: metadataError.message,
+          stack: metadataError.stack
+        });
+      }
+
+      showFailureScreen(
+        container,
+        walletAdapter,
+        'Payment successful but failed to update your NFT. Please contact support with your transaction ID.',
+        'METADATA_FAILED'
+      );
+      return;
+    }
+
+    console.log('[TRANSACTION] Metadata updated, finalizing purchase');
     updateProgressStep(container, 4);
+
+    try {
+      for (const record of purchaseRecords) {
+        await updatePurchaseStatus(record.purchaseId, 'pending', 'recording');
+      }
+
+      await finalizePurchaseRecords(transactionSignature);
+
+      for (const record of purchaseRecords) {
+        await updatePurchaseStatus(record.purchaseId, 'completed', 'completed');
+        await logTransaction(record.purchaseId, 'info', 'completed', 'Purchase completed successfully', {
+          signature: transactionSignature
+        });
+      }
+    } catch (recordError) {
+      console.error('[RECORD ERROR]', recordError);
+
+      for (const record of purchaseRecords) {
+        await logTransaction(record.purchaseId, 'warning', 'recording', 'Failed to finalize record', {
+          error: recordError.message
+        });
+      }
+    }
+
+    console.log('[TRANSACTION COMPLETE] All steps successful');
+    updateProgressStep(container, 5);
 
     await new Promise(resolve => setTimeout(resolve, 1000));
 
     showSuccessScreen(container, walletAdapter, transactionSignature);
 
   } catch (error) {
-    console.error('Transaction error:', error);
-    showFailureScreen(container, walletAdapter, error.message);
+    console.error('[TRANSACTION ERROR] Unexpected error:', error);
+
+    for (const record of purchaseRecords) {
+      await updatePurchaseStatus(
+        record.purchaseId,
+        'failed',
+        'unknown',
+        'UNEXPECTED_ERROR',
+        error.message || 'An unexpected error occurred',
+        {
+          error: error.toString(),
+          stack: error.stack
+        }
+      );
+      await logTransaction(record.purchaseId, 'error', 'unknown', 'Unexpected error', {
+        error: error.message,
+        stack: error.stack
+      });
+    }
+
+    showFailureScreen(container, walletAdapter, `An unexpected error occurred: ${error.message}`, 'UNEXPECTED_ERROR');
   }
 }
 
@@ -962,35 +1214,32 @@ async function applyTraitsToNFT(targetNFT, items) {
   console.log('✅ Metadata update complete');
 }
 
-async function recordPurchase(paymentMethod, transactionSignature, walletAdapter) {
-  const items = cart.getItems();
-  const walletAddress = walletAdapter?.publicKey?.toString() || 'unknown';
+async function finalizePurchaseRecords(transactionSignature) {
+  console.log('[FINALIZE] Updating purchase records with transaction signature');
 
-  const reimbursementFee = parseFloat(import.meta.env.VITE_REIMBURSEMENT_FEE);
-  const serviceFee = parseFloat(import.meta.env.VITE_SERVICE_FEE);
-  const totalFees = reimbursementFee + serviceFee;
+  for (const record of purchaseRecords) {
+    try {
+      const burnedMints = selectedBurnNFTs.length > 0
+        ? selectedBurnNFTs.map(n => n.mint)
+        : [];
 
-  let solAmount = 0;
-  if (paymentMethod === 'free') {
-    solAmount = 0;
-  } else if (paymentMethod === 'burn') {
-    solAmount = totalFees;
-  } else {
-    solAmount = cart.getTotalSOLPrice() + totalFees;
-  }
+      const { error } = await supabase
+        .from('trait_purchases')
+        .update({
+          transaction_signature: transactionSignature,
+          nfts_burned_count: burnedMints.length,
+          burned_nft_mints: burnedMints
+        })
+        .eq('id', record.purchaseId);
 
-  for (const item of items) {
-    await supabase.from('trait_purchases').insert({
-      wallet_address: walletAddress,
-      trait_id: item.id,
-      payment_method: paymentMethod,
-      nfts_burned_count: paymentMethod === 'burn' ? selectedBurnNFTs.length : 0,
-      burned_nft_mints: paymentMethod === 'burn' ? selectedBurnNFTs.map(n => n.mint) : [],
-      sol_amount: solAmount,
-      transaction_signature: transactionSignature,
-      target_nft_mint: selectedTargetNFT.mint,
-      status: 'completed'
-    });
+      if (error) {
+        console.error(`[FINALIZE ERROR] Failed to update purchase ${record.purchaseId}:`, error);
+      } else {
+        console.log(`[FINALIZE SUCCESS] Updated purchase ${record.purchaseId} with signature`);
+      }
+    } catch (error) {
+      console.error(`[FINALIZE EXCEPTION] Error updating purchase ${record.purchaseId}:`, error);
+    }
   }
 }
 
@@ -1031,7 +1280,33 @@ function showSuccessScreen(container, walletAdapter, transactionSignature) {
   });
 }
 
-function showFailureScreen(container, walletAdapter, errorMessage) {
+function showFailureScreen(container, walletAdapter, errorMessage, errorCode = null) {
+  console.log('[FAILURE SCREEN]', errorCode, errorMessage);
+
+  let helpText = '';
+  let showRetry = true;
+
+  switch (errorCode) {
+    case 'STOCK_DEPLETED':
+      helpText = 'One or more items sold out while you were checking out. Please return to the shop and remove the out-of-stock items from your cart.';
+      showRetry = false;
+      break;
+    case 'PAYMENT_FAILED':
+      helpText = 'Your items are still reserved for 10 minutes. You can try again or return to the shop to modify your cart.';
+      break;
+    case 'METADATA_FAILED':
+      helpText = 'Your payment was processed successfully, but we had trouble updating your NFT. Please contact support with your transaction details for assistance.';
+      showRetry = false;
+      break;
+    case 'RESERVATION_FAILED':
+      helpText = 'We could not reserve your items. Please try again or contact support if the problem persists.';
+      break;
+    default:
+      helpText = 'An unexpected error occurred. Please try again or contact support if the problem continues.';
+  }
+
+  const purchaseIds = purchaseRecords.map(r => r.purchaseId).join(', ');
+
   container.innerHTML = `
     <link rel="stylesheet" href="/shop-styles.css">
     <div class="checkout-container failure-screen">
@@ -1042,10 +1317,15 @@ function showFailureScreen(container, walletAdapter, errorMessage) {
       </div>
       <div class="error-details">
         <p><strong>Error:</strong> ${errorMessage}</p>
+        ${errorCode ? `<p><strong>Error Code:</strong> ${errorCode}</p>` : ''}
+        <p style="margin-top: 16px; padding: 12px; background: rgba(59, 130, 246, 0.1); border-left: 3px solid #3b82f6; border-radius: 4px; font-size: 14px;">
+          ${helpText}
+        </p>
+        ${purchaseIds ? `<p style="margin-top: 12px; font-size: 12px; color: rgba(255, 255, 255, 0.5);"><strong>Reference ID(s):</strong> ${purchaseIds.substring(0, 50)}...</p>` : ''}
       </div>
       <div class="checkout-actions">
         <button class="btn-secondary back-to-shop">Back to Shop</button>
-        <button class="btn-primary try-again">Try Again</button>
+        ${showRetry ? '<button class="btn-primary try-again">Try Again</button>' : ''}
       </div>
     </div>
   `;
@@ -1057,9 +1337,11 @@ function showFailureScreen(container, walletAdapter, errorMessage) {
     loadShop(container, walletAdapter);
   });
 
-  retryBtn.addEventListener('click', () => {
-    showPaymentSelection(container, walletAdapter);
-  });
+  if (retryBtn) {
+    retryBtn.addEventListener('click', () => {
+      showPaymentSelection(container, walletAdapter);
+    });
+  }
 }
 
 async function fetchUserNFTs(walletAdapter) {

@@ -1066,23 +1066,65 @@ window.showShopTransactionDetail = async function(transactionId) {
     const modal = document.getElementById('shopDetailModal');
     const content = document.getElementById('shopModalContent');
 
+    const { data: logs } = await supabase
+        .from('transaction_logs')
+        .select('*')
+        .eq('purchase_id', transactionId)
+        .order('created_at', { ascending: true });
+
+    let timelineSection = '';
+    if (logs && logs.length > 0) {
+        timelineSection = `
+            <div>
+                <h3 class="text-lg font-semibold border-b border-white/10 pb-2 mb-4">Transaction Timeline (${logs.length} events)</h3>
+                <div class="space-y-2 max-h-96 overflow-y-auto">
+                    ${logs.map(log => {
+                        const iconMap = { info: 'ℹ️', warning: '⚠️', error: '❌' };
+                        const colorMap = { info: 'blue', warning: 'yellow', error: 'red' };
+                        const icon = iconMap[log.log_level] || 'ℹ️';
+                        const color = colorMap[log.log_level] || 'gray';
+
+                        return `
+                            <div class="glass rounded-lg p-3 border-l-4 border-${color}-500">
+                                <div class="flex items-start gap-2">
+                                    <span class="text-lg">${icon}</span>
+                                    <div class="flex-1 min-w-0">
+                                        <div class="flex justify-between items-start gap-2">
+                                            <div>
+                                                <div class="text-xs text-gray-400">${formatDate(log.created_at)}</div>
+                                                <div class="font-medium text-sm">[${log.step}] ${log.message}</div>
+                                            </div>
+                                            <span class="text-xs px-2 py-0.5 rounded bg-${color}-500/20 text-${color}-400">${log.log_level}</span>
+                                        </div>
+                                        ${Object.keys(log.details || {}).length > 0 ? `
+                                            <pre class="mt-2 text-xs text-gray-400 whitespace-pre-wrap font-mono bg-black/30 p-2 rounded">${JSON.stringify(log.details, null, 2)}</pre>
+                                        ` : ''}
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            </div>
+        `;
+    }
+
     let burnedNFTsSection = '';
-    if (tx.payment_method === 'burn' && tx.burned_nfts && tx.burned_nfts.length > 0) {
+    if (tx.payment_method === 'burn' && tx.burned_nft_mints && tx.burned_nft_mints.length > 0) {
         burnedNFTsSection = `
             <div>
-                <h3 class="text-lg font-semibold border-b border-white/10 pb-2 mb-4">Burned NFTs (${tx.burned_nfts.length} Total)</h3>
+                <h3 class="text-lg font-semibold border-b border-white/10 pb-2 mb-4">Burned NFTs (${tx.burned_nft_mints.length} Total)</h3>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-96 overflow-y-auto">
-                    ${tx.burned_nfts.map((nft, index) => `
+                    ${tx.burned_nft_mints.map((mint, index) => `
                         <div class="glass rounded-lg p-4 flex items-center gap-3">
                             <span class="text-2xl">🔥</span>
                             <div class="flex-1 min-w-0">
                                 <div class="text-xs text-gray-400">NFT #${index + 1}</div>
-                                <div class="font-medium text-sm">${nft.name || 'Trap Star'}</div>
-                                <div class="font-mono text-xs text-gray-500 truncate">${nft.mint}</div>
-                                <button class="copy-btn mt-1 text-xs" onclick="event.stopPropagation(); copyToClipboard('${nft.mint}', this)">
+                                <div class="font-mono text-xs text-gray-500 truncate">${mint}</div>
+                                <button class="copy-btn mt-1 text-xs" onclick="event.stopPropagation(); copyToClipboard('${mint}', this)">
                                     Copy Mint
                                 </button>
-                                <a href="https://solscan.io/token/${nft.mint}" target="_blank" class="text-xs text-blue-400 hover:text-blue-300 ml-2">
+                                <a href="https://solscan.io/token/${mint}" target="_blank" class="text-xs text-blue-400 hover:text-blue-300 ml-2">
                                     View on Solscan →
                                 </a>
                             </div>
@@ -1091,6 +1133,14 @@ window.showShopTransactionDetail = async function(transactionId) {
                 </div>
             </div>
         `;
+    }
+
+    let durationInfo = '';
+    if (tx.completed_at || tx.updated_at) {
+        const startTime = new Date(tx.created_at).getTime();
+        const endTime = new Date(tx.completed_at || tx.updated_at).getTime();
+        const duration = ((endTime - startTime) / 1000).toFixed(1);
+        durationInfo = `${duration}s`;
     }
 
     content.innerHTML = `
@@ -1106,6 +1156,21 @@ window.showShopTransactionDetail = async function(transactionId) {
                         <div class="info-label">Status</div>
                         <div class="info-value">${getStatusBadge(tx.status)}</div>
                     </div>
+                    ${tx.transaction_step ? `
+                    <div class="info-row">
+                        <div class="info-label">Current Step</div>
+                        <div class="info-value"><span class="text-xs px-2 py-1 rounded bg-blue-500/20 text-blue-400">${tx.transaction_step}</span></div>
+                    </div>` : ''}
+                    ${tx.error_code ? `
+                    <div class="info-row">
+                        <div class="info-label">Error Code</div>
+                        <div class="info-value"><span class="text-xs px-2 py-1 rounded bg-red-500/20 text-red-400">${tx.error_code}</span></div>
+                    </div>` : ''}
+                    ${tx.retry_count > 0 ? `
+                    <div class="info-row">
+                        <div class="info-label">Retry Count</div>
+                        <div class="info-value">${tx.retry_count}</div>
+                    </div>` : ''}
                     <div class="info-row">
                         <div class="info-label">Wallet</div>
                         <div class="info-value font-mono text-xs">${tx.wallet_address}</div>
@@ -1114,6 +1179,26 @@ window.showShopTransactionDetail = async function(transactionId) {
                         <div class="info-label">Created</div>
                         <div class="info-value">${formatDate(tx.created_at)}</div>
                     </div>
+                    ${tx.reserved_at ? `
+                    <div class="info-row">
+                        <div class="info-label">Reserved</div>
+                        <div class="info-value">${formatDate(tx.reserved_at)}</div>
+                    </div>` : ''}
+                    ${tx.payment_started_at ? `
+                    <div class="info-row">
+                        <div class="info-label">Payment Started</div>
+                        <div class="info-value">${formatDate(tx.payment_started_at)}</div>
+                    </div>` : ''}
+                    ${tx.completed_at ? `
+                    <div class="info-row">
+                        <div class="info-label">Completed</div>
+                        <div class="info-value">${formatDate(tx.completed_at)}</div>
+                    </div>` : ''}
+                    ${durationInfo ? `
+                    <div class="info-row">
+                        <div class="info-label">Duration</div>
+                        <div class="info-value font-semibold">${durationInfo}</div>
+                    </div>` : ''}
                     ${tx.transaction_signature ? `
                     <div class="info-row">
                         <div class="info-label">Transaction</div>
@@ -1184,6 +1269,8 @@ window.showShopTransactionDetail = async function(transactionId) {
                     </div>
                 </div>
             </div>
+
+            ${timelineSection}
 
             ${burnedNFTsSection}
 
