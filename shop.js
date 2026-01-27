@@ -764,10 +764,48 @@ async function reserveStockForCart(walletAdapter, paymentMethod, solAmount) {
   console.log('[RESERVATION] Wallet:', walletAddress);
   console.log('[RESERVATION] Target NFT:', targetMint);
   console.log('[RESERVATION] Payment method:', paymentMethod);
+  console.log('[RESERVATION] SOL amount:', solAmount);
+
+  if (!selectedTargetNFT) {
+    console.error('[RESERVATION ERROR] No target NFT selected');
+    return {
+      success: false,
+      error_code: 'NO_TARGET_NFT',
+      message: 'Please select a Trap Star to receive the traits.'
+    };
+  }
+
+  if (!walletAdapter || !walletAdapter.publicKey) {
+    console.error('[RESERVATION ERROR] Wallet not connected');
+    return {
+      success: false,
+      error_code: 'WALLET_NOT_CONNECTED',
+      message: 'Please connect your wallet to continue.'
+    };
+  }
+
+  if (items.length === 0) {
+    console.error('[RESERVATION ERROR] Cart is empty');
+    return {
+      success: false,
+      error_code: 'EMPTY_CART',
+      message: 'Your cart is empty. Please add items to continue.'
+    };
+  }
 
   for (const item of items) {
     try {
       console.log(`[RESERVATION] Reserving stock for ${item.name} (${item.id})`);
+
+      if (!item.id) {
+        console.error(`[RESERVATION ERROR] Item missing ID:`, item);
+        failedItems.push({
+          name: item.name || 'Unknown Item',
+          reason: 'invalid_item',
+          message: 'Invalid item data'
+        });
+        continue;
+      }
 
       const { data, error } = await supabase.rpc('reserve_trait_stock', {
         trait_uuid: item.id,
@@ -779,6 +817,20 @@ async function reserveStockForCart(walletAdapter, paymentMethod, solAmount) {
 
       if (error) {
         console.error(`[RESERVATION ERROR] Failed to reserve ${item.name}:`, error);
+        console.error('[RESERVATION ERROR] Error details:', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code
+        });
+
+        await logTransaction(null, 'error', 'reservation', `Failed to reserve ${item.name}`, {
+          error: error.message,
+          error_code: error.code,
+          error_details: error.details,
+          item_id: item.id,
+          wallet_address: walletAddress
+        });
 
         if (error.message && error.message.includes('STOCK_DEPLETED')) {
           failedItems.push({
@@ -786,13 +838,32 @@ async function reserveStockForCart(walletAdapter, paymentMethod, solAmount) {
             reason: 'out_of_stock',
             message: `${item.name} just sold out`
           });
+        } else if (error.message && error.message.includes('permission denied')) {
+          failedItems.push({
+            name: item.name,
+            reason: 'permission_denied',
+            message: 'Database permission error. Please try again or contact support.'
+          });
+        } else if (error.code === 'PGRST301') {
+          failedItems.push({
+            name: item.name,
+            reason: 'function_not_found',
+            message: 'Stock reservation function not available. Please contact support.'
+          });
         } else {
           failedItems.push({
             name: item.name,
             reason: 'reservation_failed',
-            message: `Failed to reserve ${item.name}`
+            message: error.message || `Failed to reserve ${item.name}`
           });
         }
+      } else if (!data) {
+        console.error(`[RESERVATION ERROR] No purchase ID returned for ${item.name}`);
+        failedItems.push({
+          name: item.name,
+          reason: 'no_purchase_id',
+          message: 'Failed to create purchase record'
+        });
       } else {
         console.log(`[RESERVATION SUCCESS] Reserved ${item.name}, Purchase ID:`, data);
         purchaseRecords.push({
@@ -803,10 +874,19 @@ async function reserveStockForCart(walletAdapter, paymentMethod, solAmount) {
       }
     } catch (error) {
       console.error(`[RESERVATION EXCEPTION] Error reserving ${item.name}:`, error);
+      console.error('[RESERVATION EXCEPTION] Stack:', error.stack);
+
+      await logTransaction(null, 'error', 'reservation', `Exception during reservation: ${error.message}`, {
+        error: error.toString(),
+        stack: error.stack,
+        item_id: item?.id,
+        item_name: item?.name
+      });
+
       failedItems.push({
         name: item.name,
         reason: 'exception',
-        message: error.message || 'Unknown error'
+        message: error.message || 'Network error. Please check your connection and try again.'
       });
     }
   }
@@ -831,14 +911,33 @@ async function reserveStockForCart(walletAdapter, paymentMethod, solAmount) {
       return {
         success: false,
         error_code: 'STOCK_DEPLETED',
-        message: `The following items just sold out while you were checking out: ${itemsList}. Please remove them from your cart and try again.`
+        message: `Sorry! ${itemsList} just sold out while you were checking out. Please go back and remove it from your cart to continue.`
       };
     }
 
+    const networkErrors = failedItems.filter(f => f.reason === 'exception');
+    if (networkErrors.length > 0 && networkErrors.length === failedItems.length) {
+      return {
+        success: false,
+        error_code: 'NETWORK_ERROR',
+        message: 'Connection error. Please check your internet connection and try again. If the problem persists, try refreshing the page.'
+      };
+    }
+
+    const permissionErrors = failedItems.filter(f => f.reason === 'permission_denied');
+    if (permissionErrors.length > 0) {
+      return {
+        success: false,
+        error_code: 'PERMISSION_ERROR',
+        message: 'There was a database permission error. Please try refreshing the page. If the problem continues, contact support.'
+      };
+    }
+
+    const firstError = failedItems[0];
     return {
       success: false,
-      error_code: 'RESERVATION_FAILED',
-      message: 'Failed to reserve items in your cart. Please try again.'
+      error_code: firstError.reason.toUpperCase(),
+      message: firstError.message || 'Unable to reserve stock. Please try again or contact support if the issue persists.'
     };
   }
 
