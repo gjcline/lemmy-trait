@@ -40,28 +40,25 @@ async function updatePurchaseStatus(purchaseId, status, step, errorCode = null, 
       errorDetails
     });
 
-    const updateData = {
-      status: status,
-      transaction_step: step,
-      updated_at: new Date().toISOString()
-    };
-
-    if (errorCode) updateData.error_code = errorCode;
-    if (errorMessage) updateData.error_message = errorMessage;
-    if (errorDetails) updateData.error_details = errorDetails;
-    if (status === 'completed') updateData.completed_at = new Date().toISOString();
-    if (step === 'payment' && status !== 'failed') updateData.payment_started_at = new Date().toISOString();
-
-    const { error } = await supabase
-      .from('trait_purchases')
-      .update(updateData)
-      .eq('id', purchaseId);
+    const { data, error } = await supabase.rpc('update_purchase_status', {
+      purchase_uuid: purchaseId,
+      new_status: status,
+      new_step: step,
+      err_code: errorCode,
+      err_message: errorMessage,
+      err_details: errorDetails
+    });
 
     if (error) {
-      console.error('Failed to update purchase status:', error);
+      console.error('[CRITICAL] Failed to update purchase status:', error);
+      throw new Error(`Failed to update purchase status: ${error.message}`);
     }
+
+    console.log(`[STATUS UPDATE SUCCESS] Purchase ${purchaseId} updated to ${status}`);
+    return true;
   } catch (error) {
-    console.error('Error in updatePurchaseStatus:', error);
+    console.error('[CRITICAL ERROR] Error in updatePurchaseStatus:', error);
+    throw error;
   }
 }
 
@@ -1117,42 +1114,72 @@ async function processTransaction(container, walletAdapter, paymentMethod, total
           signature: transactionSignature
         });
       }
+
+      console.log('[TRANSACTION COMPLETE] All steps successful');
+      updateProgressStep(container, 5);
+
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      showSuccessScreen(container, walletAdapter, transactionSignature);
     } catch (recordError) {
-      console.error('[RECORD ERROR]', recordError);
+      console.error('[RECORD ERROR] Failed to complete purchase finalization:', recordError);
 
       for (const record of purchaseRecords) {
-        await logTransaction(record.purchaseId, 'warning', 'recording', 'Failed to finalize record', {
-          error: recordError.message
-        });
+        try {
+          await updatePurchaseStatus(
+            record.purchaseId,
+            'failed',
+            'recording',
+            'FINALIZATION_ERROR',
+            `Failed to finalize purchase: ${recordError.message}`,
+            {
+              error: recordError.toString(),
+              stack: recordError.stack
+            }
+          );
+          await logTransaction(record.purchaseId, 'error', 'recording', 'Failed to finalize record', {
+            error: recordError.message
+          });
+        } catch (statusError) {
+          console.error('[CRITICAL] Could not update purchase status to failed:', statusError);
+        }
       }
+
+      showFailureScreen(
+        container,
+        walletAdapter,
+        `Transaction completed on blockchain but failed to record: ${recordError.message}. Please contact support with signature: ${transactionSignature}`,
+        'FINALIZATION_ERROR'
+      );
     }
-
-    console.log('[TRANSACTION COMPLETE] All steps successful');
-    updateProgressStep(container, 5);
-
-    await new Promise(resolve => setTimeout(resolve, 1000));
-
-    showSuccessScreen(container, walletAdapter, transactionSignature);
 
   } catch (error) {
     console.error('[TRANSACTION ERROR] Unexpected error:', error);
 
     for (const record of purchaseRecords) {
-      await updatePurchaseStatus(
-        record.purchaseId,
-        'failed',
-        'unknown',
-        'UNEXPECTED_ERROR',
-        error.message || 'An unexpected error occurred',
-        {
-          error: error.toString(),
+      try {
+        await updatePurchaseStatus(
+          record.purchaseId,
+          'failed',
+          'unknown',
+          'UNEXPECTED_ERROR',
+          error.message || 'An unexpected error occurred',
+          {
+            error: error.toString(),
+            stack: error.stack
+          }
+        );
+        await logTransaction(record.purchaseId, 'error', 'unknown', 'Unexpected error', {
+          error: error.message,
           stack: error.stack
-        }
-      );
-      await logTransaction(record.purchaseId, 'error', 'unknown', 'Unexpected error', {
-        error: error.message,
-        stack: error.stack
-      });
+        });
+      } catch (statusError) {
+        console.error('[CRITICAL] Could not update purchase status to failed:', statusError);
+        await logTransaction(record.purchaseId, 'error', 'unknown', 'Status update failed', {
+          originalError: error.message,
+          statusError: statusError.message
+        });
+      }
     }
 
     showFailureScreen(container, walletAdapter, `An unexpected error occurred: ${error.message}`, 'UNEXPECTED_ERROR');
