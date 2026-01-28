@@ -1,36 +1,36 @@
-// Background image URLs - migrated to Netlify hosting
+// Background image URLs - fully migrated to Netlify hosting
 export const BACKGROUND_URLS = {
-    '2 Face': 'https://res.cloudinary.com/dhirimesk/image/upload/v1763774713/2_Face_d67nki.png', // TODO: Find correct Netlify URL
-    '21 21': 'https://res.cloudinary.com/dhirimesk/image/upload/v1763774725/21_21_cwiymn.png', // TODO: Find correct Netlify URL
+    '2 Face': 'https://trapstars-assets.netlify.app/background/2%20Face.png',
+    '21 21': 'https://trapstars-assets.netlify.app/background/21%2021.png',
     '666': 'https://trapstars-assets.netlify.app/background/666.png',
-    'Cave': 'https://trapstars-assets.netlify.app/background/cave.png',
-    'Christmas': 'https://trapstars-assets.netlify.app/background/christmas.png',
-    'Expensive': 'https://trapstars-assets.netlify.app/background/expensive.png',
-    'Flames': 'https://trapstars-assets.netlify.app/background/flames.png',
-    'Going Dark': 'https://res.cloudinary.com/dhirimesk/image/upload/v1763774717/Going_Dark_qddxvx.png', // TODO: Find correct Netlify URL
-    'Grow House': 'https://res.cloudinary.com/dhirimesk/image/upload/v1763774731/Grow_House_aggrgh.png', // TODO: Find correct Netlify URL
-    'Gucci': 'https://trapstars-assets.netlify.app/background/gucci.png',
-    'Lambo': 'https://trapstars-assets.netlify.app/background/lambo.png',
-    'Lights': 'https://trapstars-assets.netlify.app/background/lights.png',
-    'Locked Up': 'https://res.cloudinary.com/dhirimesk/image/upload/v1763774746/Locked_Up_cv55tw.png', // TODO: Find correct Netlify URL
+    'Cave': 'https://trapstars-assets.netlify.app/background/Cave.png',
+    'Christmas': 'https://trapstars-assets.netlify.app/background/Christmas.png',
+    'Expensive': 'https://trapstars-assets.netlify.app/background/Expensive.png',
+    'Flames': 'https://trapstars-assets.netlify.app/background/Flames.png',
+    'Going Dark': 'https://trapstars-assets.netlify.app/background/Going%20Dark.png',
+    'Grow House': 'https://trapstars-assets.netlify.app/background/Grow%20House.png',
+    'Gucci': 'https://trapstars-assets.netlify.app/background/Gucci.png',
+    'Lambo': 'https://trapstars-assets.netlify.app/background/Lambo.png',
+    'Lights': 'https://trapstars-assets.netlify.app/background/Lights.png',
+    'Locked Up': 'https://trapstars-assets.netlify.app/background/Locked%20Up.png',
     'Maduro': 'https://trapstars-assets.netlify.app/background/madurobg.png',
-    'Mansion': 'https://trapstars-assets.netlify.app/background/mansion.png',
-    'Metal': 'https://trapstars-assets.netlify.app/background/metal.png',
-    'Moon': 'https://trapstars-assets.netlify.app/background/moon.png',
-    'Penthouse': 'https://trapstars-assets.netlify.app/background/penthouse.png',
-    'Pick Your Weapon': 'https://res.cloudinary.com/dhirimesk/image/upload/v1763774760/Pick_Your_Weapon_ejusgs.png', // TODO: Find correct Netlify URL
-    'Private Jet RR': 'https://res.cloudinary.com/dhirimesk/image/upload/v1763774750/Private_Jet_RR_lkhfl7.png', // TODO: Find correct Netlify URL
-    'RR 1': 'https://res.cloudinary.com/dhirimesk/image/upload/v1763774750/RR_1_bm6stm.png', // TODO: Find correct Netlify URL
-    'RR Inside': 'https://res.cloudinary.com/dhirimesk/image/upload/v1763774749/RR_Inside_lrowrc.png', // TODO: Find correct Netlify URL
+    'Mansion': 'https://trapstars-assets.netlify.app/background/Mansion.png',
+    'Metal': 'https://trapstars-assets.netlify.app/background/Metal.png',
+    'Moon': 'https://trapstars-assets.netlify.app/background/Moon.png',
+    'Penthouse': 'https://trapstars-assets.netlify.app/background/Penthouse.png',
+    'Pick Your Weapon': 'https://trapstars-assets.netlify.app/background/Pick%20Your%20Weapon.png',
+    'Private Jet RR': 'https://trapstars-assets.netlify.app/background/Private%20Jet%20RR.png',
+    'RR 1': 'https://trapstars-assets.netlify.app/background/RR%201.png',
+    'RR Inside': 'https://trapstars-assets.netlify.app/background/RR%20Inside.png',
     'Scarface 2': 'https://trapstars-assets.netlify.app/background/scarface2.png',
-    'Sega': 'https://trapstars-assets.netlify.app/background/sega.png',
-    'Studio': 'https://trapstars-assets.netlify.app/background/studio.png',
-    'Tony Montana': 'https://res.cloudinary.com/dhirimesk/image/upload/v1763774771/Tony_Montana.png', // TODO: Find correct Netlify URL
-    'Trap 1': 'https://res.cloudinary.com/dhirimesk/image/upload/v1763774773/Trap_1.png', // TODO: Find correct Netlify URL
-    'Trap 2': 'https://res.cloudinary.com/dhirimesk/image/upload/v1763774768/Trap_2.png', // TODO: Find correct Netlify URL
-    'Up In Space': 'https://res.cloudinary.com/dhirimesk/image/upload/v1763774760/Up_In_Space_ftsynt.png', // TODO: Find correct Netlify URL
-    'Vapot': 'https://trapstars-assets.netlify.app/background/vapot.png',
-    'Views': 'https://trapstars-assets.netlify.app/background/views.png'
+    'Sega': 'https://trapstars-assets.netlify.app/background/Sega.png',
+    'Studio': 'https://trapstars-assets.netlify.app/background/Studio.png',
+    'Tony Montana': 'https://trapstars-assets.netlify.app/background/Tony%20Montana.png',
+    'Trap 1': 'https://trapstars-assets.netlify.app/background/Trap%201.png',
+    'Trap 2': 'https://trapstars-assets.netlify.app/background/Trap%202.png',
+    'Up In Space': 'https://trapstars-assets.netlify.app/background/Up%20In%20Space.png',
+    'Vapot': 'https://trapstars-assets.netlify.app/background/Vapot.png',
+    'Views': 'https://trapstars-assets.netlify.app/background/Views.png'
 };
 
 export function getBackgroundUrl(backgroundName) {
